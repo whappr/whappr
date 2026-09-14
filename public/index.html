@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>whappr</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background: #f5f5f5;
+        color: #1a1a1a;
+      }
+      main {
+        text-align: center;
+        padding: 2rem;
+      }
+      img {
+        width: 260px;
+        height: 260px;
+        border-radius: 8px;
+        background: #fff;
+        padding: 12px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+      p {
+        color: #555;
+      }
+      input {
+        display: block;
+        margin: 1rem auto 0.5rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        width: 240px;
+      }
+      button {
+        padding: 0.5rem 1.25rem;
+        font-size: 1rem;
+        border: none;
+        border-radius: 6px;
+        background: #1a1a1a;
+        color: #fff;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #333;
+      }
+      .error {
+        color: #c0392b;
+        font-size: 0.9rem;
+        min-height: 1.2em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section id="view-qr">
+        <h1>Scan to connect WhatsApp</h1>
+        <img id="qr-image" alt="WhatsApp QR code" />
+      </section>
+
+      <section id="view-authenticated" hidden>
+        <h1>Authenticated</h1>
+        <input id="secret-input" type="password" placeholder="Enter secret to log out" />
+        <div>
+          <button id="logout-button" type="button">Log out</button>
+        </div>
+        <p class="error" id="logout-error"></p>
+      </section>
+
+      <section id="view-status" hidden>
+        <h1 id="status-text">Status: initializing</h1>
+      </section>
+    </main>
+
+    <script>
+      const POLL_INTERVAL_MS = 1000;
+
+      const qrView = document.getElementById('view-qr');
+      const qrImage = document.getElementById('qr-image');
+      const authView = document.getElementById('view-authenticated');
+      const statusView = document.getElementById('view-status');
+      const statusText = document.getElementById('status-text');
+      const secretInput = document.getElementById('secret-input');
+      const logoutButton = document.getElementById('logout-button');
+      const logoutError = document.getElementById('logout-error');
+
+      function showView(view) {
+        for (const el of [qrView, authView, statusView]) {
+          el.hidden = el !== view;
+        }
+      }
+
+      function render(state) {
+        if (state.status === 'AWAITING_SCAN' && state.qr) {
+          qrImage.src = state.qr;
+          showView(qrView);
+        } else if (state.status === 'AUTHENTICATED' || state.status === 'READY') {
+          showView(authView);
+        } else {
+          statusText.textContent =
+            state.status === 'AUTH_FAILED'
+              ? 'Authentication failed. Check server logs for details.'
+              : `Status: ${state.status}`;
+          showView(statusView);
+        }
+      }
+
+      async function poll() {
+        try {
+          const response = await fetch('/api/status');
+          const state = await response.json();
+          render(state);
+        } catch (error) {
+          console.error('Failed to fetch status', error);
+        }
+      }
+
+      logoutButton.addEventListener('click', async () => {
+        logoutError.textContent = '';
+        const secret = secretInput.value;
+
+        if (!secret) {
+          logoutError.textContent = 'Enter the secret first.';
+          return;
+        }
+
+        try {
+          const response = await fetch('/api/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret }),
+          });
+
+          if (response.status === 401) {
+            logoutError.textContent = 'Invalid secret.';
+            return;
+          }
+
+          if (!response.ok) {
+            logoutError.textContent = 'Log out failed. Try again.';
+            return;
+          }
+
+          secretInput.value = '';
+          poll();
+        } catch (error) {
+          logoutError.textContent = 'Log out failed. Try again.';
+        }
+      });
+
+      poll();
+      setInterval(poll, POLL_INTERVAL_MS);
+    </script>
+  </body>
+</html>
