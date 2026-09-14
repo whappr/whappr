@@ -127,18 +127,3 @@ export function eventMatchesRules(event: AnyWhapprEvent, entries: EventFilterEnt
   return entries.some((entry) => entry.type === WILDCARD);
 }
 
-function renderEntry(entry: EventFilterEntry): string {
-  const attrs = Object.entries(entry.attributes).map(
-    ([field, value]) => `${field}=${JSON.stringify(value)}`,
-  );
-  return attrs.length === 0 ? entry.type : `${entry.type}(${attrs.join('&')})`;
-}
-
-export function describeEventFilterRules(entries: EventFilterEntry[]): string {
-  if (entries.length === 0 || entries.every((entry) => entry.type === WILDCARD)) {
-    return 'no filter configured — all events will be dispatched';
-  }
-
-  const rendered = entries.map(renderEntry).join(', ');
-  return `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}: ${rendered}`;
-}

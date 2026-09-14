@@ -1,14 +1,13 @@
 import { Hono } from 'hono';
-import type { WhatsappSupervisor } from '../../whatsapp/supervisor.js';
+import type { WhatsappClient } from '../../whatsapp/client.js';
 import type { AppEnv } from '../types.js';
 
 interface StatusRouteDeps {
-  supervisor: WhatsappSupervisor;
+  client: WhatsappClient;
 }
 
-export function createStatusRoute({ supervisor }: StatusRouteDeps): Hono<AppEnv> {
+export function createStatusRoute({ client }: StatusRouteDeps): Hono<AppEnv> {
   return new Hono<AppEnv>().get('/', (c) => {
-    const client = supervisor.getClient();
     return c.json(client.getState());
   });
 }

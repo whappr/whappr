@@ -1,9 +1,11 @@
 import { serve } from '@hono/node-server';
 import { loadEnv } from './config/env.js';
+import { loadEventFilterRules } from './events/filter.js';
+import { wireWebhookForwarding } from './events/forwarding.js';
 import { createApp } from './http/app.js';
 import { createRootLogger } from './logging/logger.js';
 import { createWebhookBuffer } from './webhook/buffer.js';
-import { createWhatsappSupervisor } from './whatsapp/supervisor.js';
+import { createWhatsappClient } from './whatsapp/client.js';
 
 const env = loadEnv();
 const logger = createRootLogger(env.LOG_LEVEL);
@@ -15,11 +17,17 @@ const webhookBuffer = createWebhookBuffer({
   logger,
 });
 
-const supervisor = createWhatsappSupervisor(env, webhookBuffer, logger);
+// Validated and logged before the WhatsApp client (and its Puppeteer browser) is
+// ever created, so a bad WHAPPR_EVENT_FILTER config fails fast without touching it.
+const eventFilterRules = loadEventFilterRules(logger);
+logger.info({ eventFilterRules }, 'event filter configured');
+
+const client = createWhatsappClient(env, logger);
+wireWebhookForwarding(client, webhookBuffer, eventFilterRules, logger);
 
 const app = createApp({
   secret: env.WHAPPR_SECRET,
-  supervisor,
+  client,
   logger,
 });
 
@@ -30,7 +38,7 @@ serve({ fetch: app.fetch, port: env.PORT }, (info) => {
 async function shutdown(): Promise<void> {
   logger.info('shutting down');
   await Promise.allSettled([
-    supervisor.destroy().catch((error) => logger.error({ error }, 'error during shutdown')),
+    client.destroy().catch((error) => logger.error({ error }, 'error during shutdown')),
     webhookBuffer.flush(),
   ]);
   // Catches an event client.destroy() itself emitted (e.g. a trailing message.ack)

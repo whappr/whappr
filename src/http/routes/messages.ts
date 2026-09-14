@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { toMessagePayload } from '../../whatsapp/client.js';
-import type { WhatsappSupervisor } from '../../whatsapp/supervisor.js';
+import { toMessagePayload, type WhatsappClient } from '../../whatsapp/client.js';
 import { ensureReadyMiddleware } from '../middlewares/ensure-ready.middleware.js';
 import { verifySignatureMiddleware } from '../middlewares/verify-signature.middleware.js';
 import type { AppEnv } from '../types.js';
@@ -22,74 +21,69 @@ const reactSchema = z.object({
 
 interface MessagesRouteDeps {
   secret: string;
-  supervisor: WhatsappSupervisor;
+  client: WhatsappClient;
 }
 
 function toJid(to: string): string {
   return to.includes('@') ? to : `${to}@c.us`;
 }
 
-export function createMessagesRoute({ secret, supervisor }: MessagesRouteDeps): Hono<AppEnv> {
+export function createMessagesRoute({ secret, client }: MessagesRouteDeps): Hono<AppEnv> {
   return new Hono<AppEnv>()
     .post(
       '/',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(supervisor),
+      ensureReadyMiddleware(client),
       zValidator('json', sendMessageSchema),
       async (c) => {
         const { to, text } = c.req.valid('json');
-        const sentMessage = await supervisor.getClient().sendMessage(toJid(to), text);
+        const sentMessage = await client.sendMessage(toJid(to), text);
         return c.json({ message: toMessagePayload(sentMessage) }, 201);
       },
     )
     .patch(
       '/:id',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(supervisor),
+      ensureReadyMiddleware(client),
       zValidator('json', textOnlySchema),
       async (c) => {
         const { text } = c.req.valid('json');
-        const message = await supervisor.getClient().editMessage(c.req.param('id'), text);
+        const message = await client.editMessage(c.req.param('id'), text);
         return c.json({ message });
       },
     )
-    .delete(
-      '/:id',
-      verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(supervisor),
-      async (c) => {
-        await supervisor.getClient().deleteMessage(c.req.param('id'));
-        return c.body(null, 204);
-      },
-    )
+    .delete('/:id', verifySignatureMiddleware(secret), ensureReadyMiddleware(client), async (c) => {
+      await client.deleteMessage(c.req.param('id'));
+      return c.body(null, 204);
+    })
     .post(
       '/:id/reactions',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(supervisor),
+      ensureReadyMiddleware(client),
       zValidator('json', reactSchema),
       async (c) => {
         const { emoji } = c.req.valid('json');
-        await supervisor.getClient().reactToMessage(c.req.param('id'), emoji);
+        await client.reactToMessage(c.req.param('id'), emoji);
         return c.body(null, 204);
       },
     )
     .delete(
       '/:id/reactions',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(supervisor),
+      ensureReadyMiddleware(client),
       async (c) => {
-        await supervisor.getClient().reactToMessage(c.req.param('id'), '');
+        await client.reactToMessage(c.req.param('id'), '');
         return c.body(null, 204);
       },
     )
     .post(
       '/:id/replies',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(supervisor),
+      ensureReadyMiddleware(client),
       zValidator('json', textOnlySchema),
       async (c) => {
         const { text } = c.req.valid('json');
-        const message = await supervisor.getClient().replyToMessage(c.req.param('id'), text);
+        const message = await client.replyToMessage(c.req.param('id'), text);
         return c.json({ message }, 201);
       },
     );

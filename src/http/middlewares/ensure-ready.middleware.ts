@@ -1,10 +1,10 @@
 import type { MiddlewareHandler } from 'hono';
+import type { WhatsappClient } from '../../whatsapp/client.js';
 import { WhatsappError } from '../../whatsapp/errors.js';
-import type { WhatsappSupervisor } from '../../whatsapp/supervisor.js';
 
-export function ensureReadyMiddleware(supervisor: WhatsappSupervisor): MiddlewareHandler {
+export function ensureReadyMiddleware(client: WhatsappClient): MiddlewareHandler {
   return async (_c, next) => {
-    if (supervisor.getClient().getState().status !== 'READY') {
+    if (client.getState().status !== 'READY') {
       throw new WhatsappError('WhatsApp client is not ready', 'NOT_READY');
     }
     await next();

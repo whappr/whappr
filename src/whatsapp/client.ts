@@ -124,8 +124,6 @@ export interface WhatsappClientEventMap {
   'message.edited': [payload: MessageEditPayload];
   'message.reaction': [payload: MessageReactionPayload];
   'message.revoked': [payload: MessageRevokedPayload];
-  disconnected: [reason: wwebjs.WAState | 'LOGOUT'];
-  error: [error: WhatsappError];
 }
 
 export type Status =
@@ -143,15 +141,12 @@ export interface SessionState {
 
 /**
  * Prefer {@link createWhatsappClient} for construction.
- *
- * A listener for the `error` event must be attached before use — Node's
- * EventEmitter treats `error` specially and throws if it's emitted with no
- * listener attached.
  */
 export class WhatsappClient extends EventEmitter<WhatsappClientEventMap> {
   readonly #client: wwebjs.Client;
   readonly #logger: Logger;
   #state: SessionState = { status: 'INITIALIZING', qr: null };
+  #restartInFlight: Promise<void> | null = null;
 
   constructor(env: Env, logger: Logger) {
     super();
@@ -162,23 +157,11 @@ export class WhatsappClient extends EventEmitter<WhatsappClientEventMap> {
     });
 
     this.#bindListeners();
+    this.#initialize();
   }
 
   getState(): SessionState {
     return this.#state;
-  }
-
-  async init(): Promise<void> {
-    try {
-      await this.#client.initialize();
-    } catch (error) {
-      this.#setState({ status: 'AUTHENTICATION_FAILED' });
-      throw new WhatsappError(
-        'WhatsApp client failed to initialize',
-        'INITIALIZATION_FAILED',
-        error,
-      );
-    }
   }
 
   async sendMessage(
@@ -243,6 +226,31 @@ export class WhatsappClient extends EventEmitter<WhatsappClientEventMap> {
     } finally {
       this.#setState({ status: 'DISCONNECTED', qr: null });
     }
+    await this.#restart();
+  }
+
+  #restart(): Promise<void> {
+    this.#restartInFlight ??= this.#doRestart().finally(() => {
+      this.#restartInFlight = null;
+    });
+    return this.#restartInFlight;
+  }
+
+  async #doRestart(): Promise<void> {
+    try {
+      await this.#client.destroy();
+    } catch (error) {
+      this.#logger.error({ error }, 'error destroying WhatsApp client during restart');
+    }
+    this.#setState({ status: 'INITIALIZING', qr: null });
+    this.#initialize();
+  }
+
+  #initialize(): void {
+    this.#client.initialize().catch((error) => {
+      this.#setState({ status: 'AUTHENTICATION_FAILED' });
+      this.#logger.error({ error }, 'failed to initialize WhatsApp client');
+    });
   }
 
   async #findMessage(messageId: string): Promise<Message> {
@@ -278,16 +286,12 @@ export class WhatsappClient extends EventEmitter<WhatsappClientEventMap> {
     client.on('auth_failure', (message) => {
       this.#logger.error({ reason: message }, 'WhatsApp authentication failure');
       this.#setState({ status: 'AUTHENTICATION_FAILED' });
-      this.emit(
-        'error',
-        new WhatsappError(`WhatsApp authentication failed: ${message}`, 'AUTHENTICATION_FAILED'),
-      );
     });
 
     client.on('disconnected', (reason) => {
       this.#logger.error({ reason }, 'WhatsApp client disconnected');
       this.#setState({ status: 'DISCONNECTED', qr: null });
-      this.emit('disconnected', reason);
+      void this.#restart();
     });
 
     client.on('message', (message) => {

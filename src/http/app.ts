@@ -1,7 +1,7 @@
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import type { Logger } from '../logging/logger.js';
-import type { WhatsappSupervisor } from '../whatsapp/supervisor.js';
+import type { WhatsappClient } from '../whatsapp/client.js';
 import { handleError } from './errors.js';
 import {
   requestIdHeaderMiddleware,
@@ -16,7 +16,7 @@ import type { AppEnv } from './types.js';
 
 export interface AppDeps {
   secret: string;
-  supervisor: WhatsappSupervisor;
+  client: WhatsappClient;
   logger: Logger;
 }
 
