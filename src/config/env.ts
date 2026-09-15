@@ -11,7 +11,7 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
-export function loadEnv(): Env {
+export function loadEnvVars(): Env {
   const result = envSchema.safeParse(process.env);
 
   if (!result.success) {

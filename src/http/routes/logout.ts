@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { secretsMatch } from '../../security/signature.js';
-import type { WhatsappClient } from '../../whatsapp/client.js';
 import { WhatsappError } from '../../whatsapp/errors.js';
+import type { WhatsappSession } from '../../whatsapp/session.js';
 import type { AppEnv } from '../types.js';
 import { zValidator } from '../validation.js';
 
@@ -10,10 +10,10 @@ const logoutSchema = z.object({ secret: z.string().min(1) });
 
 interface LogoutRouteDeps {
   secret: string;
-  client: WhatsappClient;
+  session: WhatsappSession;
 }
 
-export function createLogoutRoute({ secret, client }: LogoutRouteDeps): Hono<AppEnv> {
+export function createLogoutRoute({ secret, session }: LogoutRouteDeps): Hono<AppEnv> {
   return new Hono<AppEnv>().post('/', zValidator('json', logoutSchema), async (c) => {
     const { secret: providedSecret } = c.req.valid('json');
 
@@ -21,7 +21,7 @@ export function createLogoutRoute({ secret, client }: LogoutRouteDeps): Hono<App
       throw new WhatsappError('Invalid secret', 'INVALID_SECRET');
     }
 
-    await client.logout();
+    await session.logout();
 
     return c.json({ ok: true }, 202);
   });

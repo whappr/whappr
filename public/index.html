@@ -117,7 +117,9 @@
           statusText.textContent =
             state.status === 'AUTH_FAILED'
               ? 'Authentication failed. Check server logs for details.'
-              : `Status: ${state.status}`;
+              : state.status === 'INIT_FAILED'
+                ? 'Failed to start WhatsApp client. Check server logs for details.'
+                : `Status: ${state.status}`;
           showView(statusView);
         }
       }

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { toMessagePayload, type WhatsappClient } from '../../whatsapp/client.js';
+import type { WhatsappSession } from '../../whatsapp/session.js';
 import { ensureReadyMiddleware } from '../middlewares/ensure-ready.middleware.js';
 import { verifySignatureMiddleware } from '../middlewares/verify-signature.middleware.js';
 import type { AppEnv } from '../types.js';
@@ -22,18 +23,19 @@ const reactSchema = z.object({
 interface MessagesRouteDeps {
   secret: string;
   client: WhatsappClient;
+  session: WhatsappSession;
 }
 
 function toJid(to: string): string {
   return to.includes('@') ? to : `${to}@c.us`;
 }
 
-export function createMessagesRoute({ secret, client }: MessagesRouteDeps): Hono<AppEnv> {
+export function createMessagesRoute({ secret, client, session }: MessagesRouteDeps): Hono<AppEnv> {
   return new Hono<AppEnv>()
     .post(
       '/',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(client),
+      ensureReadyMiddleware(session),
       zValidator('json', sendMessageSchema),
       async (c) => {
         const { to, text } = c.req.valid('json');
@@ -44,7 +46,7 @@ export function createMessagesRoute({ secret, client }: MessagesRouteDeps): Hono
     .patch(
       '/:id',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(client),
+      ensureReadyMiddleware(session),
       zValidator('json', textOnlySchema),
       async (c) => {
         const { text } = c.req.valid('json');
@@ -52,14 +54,19 @@ export function createMessagesRoute({ secret, client }: MessagesRouteDeps): Hono
         return c.json({ message });
       },
     )
-    .delete('/:id', verifySignatureMiddleware(secret), ensureReadyMiddleware(client), async (c) => {
-      await client.deleteMessage(c.req.param('id'));
-      return c.body(null, 204);
-    })
+    .delete(
+      '/:id',
+      verifySignatureMiddleware(secret),
+      ensureReadyMiddleware(session),
+      async (c) => {
+        await client.deleteMessage(c.req.param('id'));
+        return c.body(null, 204);
+      },
+    )
     .post(
       '/:id/reactions',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(client),
+      ensureReadyMiddleware(session),
       zValidator('json', reactSchema),
       async (c) => {
         const { emoji } = c.req.valid('json');
@@ -70,7 +77,7 @@ export function createMessagesRoute({ secret, client }: MessagesRouteDeps): Hono
     .delete(
       '/:id/reactions',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(client),
+      ensureReadyMiddleware(session),
       async (c) => {
         await client.reactToMessage(c.req.param('id'), '');
         return c.body(null, 204);
@@ -79,7 +86,7 @@ export function createMessagesRoute({ secret, client }: MessagesRouteDeps): Hono
     .post(
       '/:id/replies',
       verifySignatureMiddleware(secret),
-      ensureReadyMiddleware(client),
+      ensureReadyMiddleware(session),
       zValidator('json', textOnlySchema),
       async (c) => {
         const { text } = c.req.valid('json');

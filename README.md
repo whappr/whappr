@@ -48,7 +48,7 @@ missing or invalid, or if the event filter configuration is invalid (see below).
 No auth. Polled by the frontend every second.
 
 ```json
-{ "status": "qr" | "initializing" | "authenticated" | "ready" | "auth_failure" | "disconnected", "qr": "data:image/png;base64,..." | null, "error": string | null }
+{ "status": "CREATED" | "INITIALIZING" | "AWAITING_SCAN" | "AUTHENTICATED" | "READY" | "INIT_FAILED" | "AUTH_FAILED" | "DISCONNECTED", "qr": "data:image/png;base64,..." | null }
 ```
 
 ### `POST /api/logout`
@@ -114,22 +114,22 @@ before the process exits on `SIGTERM`/`SIGINT`.
 The event shape is extensible — new types can be added later without changing the delivery
 mechanism. Today's event types:
 
-- `message.received` — an inbound text message.
-- `message.sent` — an outbound text message, whether sent from the linked phone directly or via
+- `msg.received` — an inbound text message.
+- `msg.sent` — an outbound text message, whether sent from the linked phone directly or via
   `POST /api/messages` (both look identical to whatsapp-web.js, so both produce this event; a
   message sent through the API also gets returned synchronously in that request's response).
-- `message.ack` — a delivery/read status change for a message this account sent. Fires once per
+- `msg.acked` — a delivery/read status change for a message this account sent. Fires once per
   transition (e.g. server → device → read), so a single message can produce several of these.
-- `message.edited` — a previously sent message was edited.
-- `message.reaction` — a message was reacted to (or had a reaction removed — `data.reaction` is
+- `msg.edited` — a previously sent message was edited.
+- `msg.reacted` — a message was reacted to (or had a reaction removed — `data.reaction` is
   `""` in that case).
-- `message.revoked` — a message was deleted "for everyone". `data.body` is the original text when
+- `msg.revoked` — a message was deleted "for everyone". `data.body` is the original text when
   available, `null` otherwise (whatsapp-web.js doesn't always have it cached).
 
 ```json
 [
   {
-    "type": "message.received",
+    "type": "msg.received",
     "id": "generated-uuid",
     "timestamp": "2026-09-07T12:00:00.000Z",
     "data": {
@@ -145,20 +145,20 @@ mechanism. Today's event types:
 ]
 ```
 
-`message.sent` shares the same `data` shape as `message.received` (`fromMe` is `true` instead).
+`msg.sent` shares the same `data` shape as `msg.received` (`fromMe` is `true` instead).
 The other event types have their own, smaller `data` shapes:
 
 ```json
-// message.ack
+// msg.acked
 { "id": "...", "from": "...", "to": "...", "type": "READ" }
 
-// message.edited
+// msg.edited
 { "id": "...", "from": "...", "to": "...", "timestamp": 1757260800, "newBody": "hi there", "prevBody": "hi" }
 
-// message.reaction
+// msg.reacted
 { "msgId": "...", "senderId": "1555123456@c.us", "reaction": "👍", "timestamp": 1757260800 }
 
-// message.revoked
+// msg.revoked
 { "id": "...", "from": "...", "to": "...", "timestamp": 1757260800, "body": "the original text" }
 ```
 
@@ -175,20 +175,20 @@ Each entry is one of:
 
 - `*` — a wildcard: matches any event whose type has no more specific entry of its own (see
   "Precedence" below).
-- `type` on its own (e.g. `message.received`) — matches any event of that type, unconditionally.
+- `type` on its own (e.g. `msg.received`) — matches any event of that type, unconditionally.
 - `type(condition&condition&...)` — matches that type AND every listed condition, e.g.
-  `message.received(fromMe=true)` or `message.received(from=1555123456@c.us&fromMe=false)`.
+  `msg.received(fromMe=true)` or `msg.received(from=1555123456@c.us&fromMe=false)`.
 
 **Conditions within one entry are ANDed together — all of them must match.** To OR conditions
 instead, write separate entries for the same type (e.g.
-`message.received(from=X),message.received(fromMe=true)` matches either one); see "Precedence"
+`msg.received(from=X),msg.received(fromMe=true)` matches either one); see "Precedence"
 below for exactly how same-type entries combine.
 
 A condition is `field=value`, where `field` names a field inside that event's own `data` payload.
-There's no `data.` prefix: the entry's head (`message.received(...)`) already establishes which
+There's no `data.` prefix: the entry's head (`msg.received(...)`) already establishes which
 event type you're matching, so there's no ambiguity with the event envelope's own `type`. For
 example, WhatsApp messages have their own `type` field (`chat`, `image`, ...), so
-`message.received(type=chat)` unambiguously means "the message payload's own `type` field equals
+`msg.received(type=chat)` unambiguously means "the message payload's own `type` field equals
 `chat`".
 
 Values are matched with strict equality after light type coercion: the exact strings `true`/`false`
@@ -201,20 +201,20 @@ Examples:
 
 ```sh
 # Only forward messages from one specific WhatsApp number
-WHAPPR_EVENT_FILTER=message.received(from=1555123456@c.us)
+WHAPPR_EVENT_FILTER=msg.received(from=1555123456@c.us)
 
 # Only forward messages from that number that the account itself sent (AND, one entry)
-WHAPPR_EVENT_FILTER=message.received(from=1555123456@c.us&fromMe=true)
+WHAPPR_EVENT_FILTER=msg.received(from=1555123456@c.us&fromMe=true)
 
 # Forward messages from that number, OR anything the account itself sent (OR, two entries)
-WHAPPR_EVENT_FILTER=message.received(from=1555123456@c.us),message.received(fromMe=true)
+WHAPPR_EVENT_FILTER=msg.received(from=1555123456@c.us),msg.received(fromMe=true)
 
-# Only forward messages from that number (other message.received events are excluded, not
+# Only forward messages from that number (other msg.received events are excluded, not
 # rescued by the wildcard), but let every other event TYPE through via the wildcard fallback
-WHAPPR_EVENT_FILTER=message.received(from=1555123456@c.us),*
+WHAPPR_EVENT_FILTER=msg.received(from=1555123456@c.us),*
 
 # Only forward read receipts, skipping the noisier server/device ack transitions
-WHAPPR_EVENT_FILTER=message.ack(type=READ)
+WHAPPR_EVENT_FILTER=msg.acked(type=READ)
 ```
 
 #### Precedence: specific entries win over the wildcard
@@ -223,11 +223,11 @@ This is not a flat "OR of everything" — entries for a given event type take ov
 the wildcard for events of that type. Concretely:
 
 ```sh
-WHAPPR_EVENT_FILTER=message.received(fromMe=true),*
+WHAPPR_EVENT_FILTER=msg.received(fromMe=true),*
 ```
 
-- A `message.received` event with `fromMe: true` → **allowed** (matches the specific entry).
-- A `message.received` event with `fromMe: false` → **rejected** — even though `*` is present
+- A `msg.received` event with `fromMe: true` → **allowed** (matches the specific entry).
+- A `msg.received` event with `fromMe: false` → **rejected** — even though `*` is present
   elsewhere in the list, it is not consulted once a same-type entry exists. The specific entry
   wins; the wildcard does not act as a fallback for its own type.
 - Any *other* event type → **allowed**, because it has no entry of its own, so the bare `*` entry
@@ -247,7 +247,7 @@ JIDs — none of which ever need these characters.
 
 Whitespace around commas, type names, and field names is tolerated and trimmed. Whitespace *inside*
 a value is **not** trimmed and is preserved exactly — including right after the `=`. This means
-`message.received(fromMe = true)` does **not** work the way you'd expect: the value is captured as
+`msg.received(fromMe = true)` does **not** work the way you'd expect: the value is captured as
 `" true"` (with a leading space), which doesn't match the boolean-coercion string `true` exactly,
 so it's kept as the literal string `" true"` instead of the boolean `true`. Don't put spaces around
 `=` inside a condition.
@@ -264,9 +264,9 @@ At startup, the active filter is logged once, e.g.:
 
 ```
 Event filter: no filter configured — all events will be dispatched
-Event filter: 1 entry: message.received
-Event filter: 1 entry: message.received(fromMe=true)
-Event filter: 2 entries: message.received(fromMe=true), *
+Event filter: 1 entry: msg.received
+Event filter: 1 entry: msg.received(fromMe=true)
+Event filter: 2 entries: msg.received(fromMe=true), *
 ```
 
 ## Scripts
@@ -293,7 +293,7 @@ Event filter: 2 entries: message.received(fromMe=true), *
   values also can't contain a literal `,` `(` `)` or `&` — there's no escaping (see "Filtering
   which events are sent" above).
 - A malformed `WHAPPR_EVENT_FILTER` entry isn't always caught at startup: two type names separated
-  by a space instead of a comma (e.g. `message.received message.deleted`, a forgotten comma) is
+  by a space instead of a comma (e.g. `msg.received msg.deleted`, a forgotten comma) is
   parsed as one long, literal (and unmatchable) type name rather than rejected — that entry
   silently becomes dead, with no startup error to explain why its events never arrive.
 - No Docker packaging yet.

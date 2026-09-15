@@ -1,33 +1,34 @@
 import { serve } from '@hono/node-server';
-import { loadEnv } from './config/env.js';
-import { loadEventFilterRules } from './events/filter.js';
+import { loadEnvVars } from './config/env.js';
+import { loadFilterRules } from './events/filter.js';
 import { wireWebhookForwarding } from './events/forwarding.js';
 import { createApp } from './http/app.js';
 import { createRootLogger } from './logging/logger.js';
 import { createWebhookBuffer } from './webhook/buffer.js';
 import { createWhatsappClient } from './whatsapp/client.js';
+import { createWhatsappSession } from './whatsapp/session.js';
 
-const env = loadEnv();
+const env = loadEnvVars();
 const logger = createRootLogger(env.LOG_LEVEL);
 
-const webhookBuffer = createWebhookBuffer({
+const buffer = createWebhookBuffer({
   webhookUrl: env.WHAPPR_WEBHOOK_URL,
   secret: env.WHAPPR_SECRET,
   flushInterval: env.WHAPPR_WEBHOOK_FLUSH_INTERVAL,
   logger,
 });
 
-// Validated and logged before the WhatsApp client (and its Puppeteer browser) is
-// ever created, so a bad WHAPPR_EVENT_FILTER config fails fast without touching it.
-const eventFilterRules = loadEventFilterRules(logger);
-logger.info({ eventFilterRules }, 'event filter configured');
+const filters = loadFilterRules(logger);
 
-const client = createWhatsappClient(env, logger);
-wireWebhookForwarding(client, webhookBuffer, eventFilterRules, logger);
+const client = createWhatsappClient(env);
+const session = createWhatsappSession(client, logger);
+
+wireWebhookForwarding(session.client, buffer, filters, logger);
 
 const app = createApp({
   secret: env.WHAPPR_SECRET,
-  client,
+  client: session.client,
+  session,
   logger,
 });
 
@@ -35,15 +36,17 @@ serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   logger.info({ port: info.port }, 'whappr listening');
 });
 
+void session.initialize();
+
 async function shutdown(): Promise<void> {
   logger.info('shutting down');
   await Promise.allSettled([
-    client.destroy().catch((error) => logger.error({ error }, 'error during shutdown')),
-    webhookBuffer.flush(),
+    session.destroy().catch((error) => logger.error({ error }, 'error during shutdown')),
+    buffer.flush(),
   ]);
-  // Catches an event client.destroy() itself emitted (e.g. a trailing message.ack)
+  // Catches an event session.destroy() itself emitted (e.g. a trailing msg.acked)
   // while the flush above was already mid-snapshot.
-  await webhookBuffer.flush();
+  await buffer.flush();
   process.exit(0);
 }
 

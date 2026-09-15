@@ -1,8 +1,6 @@
 import { EventEmitter } from 'node:events';
-import qrcode from 'qrcode';
 import wwebjs from 'whatsapp-web.js';
 import type { Env } from '../config/env.js';
-import type { Logger } from '../logging/logger.js';
 import { WhatsappError } from './errors.js';
 
 const { Client, LocalAuth, MessageAck } = wwebjs;
@@ -118,25 +116,17 @@ export function toMessageRevokedPayload(
 }
 
 export interface WhatsappClientEventMap {
-  'message.received': [payload: MessagePayload];
-  'message.sent': [payload: MessagePayload];
-  'message.ack': [payload: MessageAckPayload];
-  'message.edited': [payload: MessageEditPayload];
-  'message.reaction': [payload: MessageReactionPayload];
-  'message.revoked': [payload: MessageRevokedPayload];
-}
-
-export type Status =
-  | 'INITIALIZING'
-  | 'AWAITING_SCAN'
-  | 'AUTHENTICATED'
-  | 'READY'
-  | 'AUTHENTICATION_FAILED'
-  | 'DISCONNECTED';
-
-export interface SessionState {
-  status: Status;
-  qr: string | null;
+  'msg.received': [payload: MessagePayload];
+  'msg.sent': [payload: MessagePayload];
+  'msg.acked': [payload: MessageAckPayload];
+  'msg.edited': [payload: MessageEditPayload];
+  'msg.reacted': [payload: MessageReactionPayload];
+  'msg.revoked': [payload: MessageRevokedPayload];
+  'conn.qr_received': [qr: string];
+  'conn.authenticated': [];
+  'conn.ready': [];
+  'conn.auth_failed': [message: string];
+  'conn.disconnected': [reason: wwebjs.WAState | 'LOGOUT'];
 }
 
 /**
@@ -144,24 +134,27 @@ export interface SessionState {
  */
 export class WhatsappClient extends EventEmitter<WhatsappClientEventMap> {
   readonly #client: wwebjs.Client;
-  readonly #logger: Logger;
-  #state: SessionState = { status: 'INITIALIZING', qr: null };
-  #restartInFlight: Promise<void> | null = null;
 
-  constructor(env: Env, logger: Logger) {
+  constructor(env: Env) {
     super();
-    this.#logger = logger;
 
     this.#client = new Client({
       authStrategy: new LocalAuth({ dataPath: env.WHAPPR_SESSION_PATH }),
     });
 
     this.#bindListeners();
-    this.#initialize();
   }
 
-  getState(): SessionState {
-    return this.#state;
+  async initialize(): Promise<void> {
+    await this.#client.initialize();
+  }
+
+  async destroy(): Promise<void> {
+    await this.#client.destroy();
+  }
+
+  async logout(): Promise<void> {
+    await this.#client.logout();
   }
 
   async sendMessage(
@@ -208,124 +201,67 @@ export class WhatsappClient extends EventEmitter<WhatsappClientEventMap> {
     return toMessagePayload(reply);
   }
 
-  async destroy(): Promise<void> {
-    try {
-      await this.#client.destroy();
-    } finally {
-      this.#setState({ status: 'DISCONNECTED', qr: null });
-    }
-  }
-
-  async logout(): Promise<void> {
-    const { status } = this.getState();
-    if (status !== 'AUTHENTICATED' && status !== 'READY') {
-      throw new WhatsappError('Not authenticated', 'NOT_AUTHENTICATED');
-    }
-    try {
-      await this.#client.logout();
-    } finally {
-      this.#setState({ status: 'DISCONNECTED', qr: null });
-    }
-    await this.#restart();
-  }
-
-  #restart(): Promise<void> {
-    this.#restartInFlight ??= this.#doRestart().finally(() => {
-      this.#restartInFlight = null;
-    });
-    return this.#restartInFlight;
-  }
-
-  async #doRestart(): Promise<void> {
-    try {
-      await this.#client.destroy();
-    } catch (error) {
-      this.#logger.error({ error }, 'error destroying WhatsApp client during restart');
-    }
-    this.#setState({ status: 'INITIALIZING', qr: null });
-    this.#initialize();
-  }
-
-  #initialize(): void {
-    this.#client.initialize().catch((error) => {
-      this.#setState({ status: 'AUTHENTICATION_FAILED' });
-      this.#logger.error({ error }, 'failed to initialize WhatsApp client');
-    });
-  }
-
   async #findMessage(messageId: string): Promise<Message> {
     const message = await this.#client.getMessageById(messageId).catch(() => null);
     if (!message) throw new WhatsappError('Message not found', 'MESSAGE_NOT_FOUND');
     return message;
   }
 
-  #setState(patch: Partial<SessionState>): void {
-    this.#state = { ...this.#state, ...patch };
-  }
-
   #bindListeners(): void {
     const client = this.#client;
 
     client.on('qr', (qr) => {
-      qrcode
-        .toDataURL(qr)
-        .then((dataUrl) => {
-          this.#setState({ status: 'AWAITING_SCAN', qr: dataUrl });
-        })
-        .catch((error) => this.#logger.error({ error }, 'failed to render QR code'));
+      this.emit('conn.qr_received', qr);
     });
 
     client.on('authenticated', () => {
-      this.#setState({ status: 'AUTHENTICATED', qr: null });
+      this.emit('conn.authenticated');
     });
 
     client.on('ready', () => {
-      this.#setState({ status: 'READY' });
+      this.emit('conn.ready');
     });
 
     client.on('auth_failure', (message) => {
-      this.#logger.error({ reason: message }, 'WhatsApp authentication failure');
-      this.#setState({ status: 'AUTHENTICATION_FAILED' });
+      this.emit('conn.auth_failed', message);
     });
 
     client.on('disconnected', (reason) => {
-      this.#logger.error({ reason }, 'WhatsApp client disconnected');
-      this.#setState({ status: 'DISCONNECTED', qr: null });
-      void this.#restart();
+      this.emit('conn.disconnected', reason);
     });
 
     client.on('message', (message) => {
       if (message.type !== 'chat' || message.fromMe) {
         return;
       }
-      this.emit('message.received', toMessagePayload(message));
+      this.emit('msg.received', toMessagePayload(message));
     });
 
     client.on('message_create', (message) => {
       if (message.type !== 'chat' || !message.fromMe) {
         return;
       }
-      this.emit('message.sent', toMessagePayload(message));
+      this.emit('msg.sent', toMessagePayload(message));
     });
 
     client.on('message_ack', (message, ack) => {
-      this.emit('message.ack', toMessageAckPayload(message, ack));
+      this.emit('msg.acked', toMessageAckPayload(message, ack));
     });
 
     client.on('message_edit', (message, newBody, oldBody) => {
-      this.emit('message.edited', toMessageEditPayload(message, String(newBody), String(oldBody)));
+      this.emit('msg.edited', toMessageEditPayload(message, String(newBody), String(oldBody)));
     });
 
     client.on('message_reaction', (reaction) => {
-      this.emit('message.reaction', toMessageReactionPayload(reaction));
+      this.emit('msg.reacted', toMessageReactionPayload(reaction));
     });
 
     client.on('message_revoke_everyone', (message, revokedMessage) => {
-      this.emit('message.revoked', toMessageRevokedPayload(message, revokedMessage));
+      this.emit('msg.revoked', toMessageRevokedPayload(message, revokedMessage));
     });
   }
 }
 
-export function createWhatsappClient(env: Env, logger: Logger): WhatsappClient {
-  return new WhatsappClient(env, logger);
+export function createWhatsappClient(env: Env): WhatsappClient {
+  return new WhatsappClient(env);
 }

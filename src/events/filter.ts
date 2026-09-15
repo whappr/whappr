@@ -92,7 +92,7 @@ function parseFilterExpression(expr: string): EventFilterEntry[] {
   return expr.split(',').map((raw) => parseEntry(raw.trim()));
 }
 
-export function loadEventFilterRules(
+export function loadFilterRules(
   logger: Logger,
   source: NodeJS.ProcessEnv = process.env,
 ): EventFilterEntry[] {
@@ -117,7 +117,7 @@ function attributesMatch(attributes: Record<string, FilterAttributeValue>, data:
   return Object.entries(attributes).every(([field, expected]) => record[field] === expected);
 }
 
-export function eventMatchesRules(event: AnyWhapprEvent, entries: EventFilterEntry[]): boolean {
+export function eventMatchesFilters(event: AnyWhapprEvent, entries: EventFilterEntry[]): boolean {
   if (entries.length === 0) return true;
 
   const specific = entries.filter((entry) => entry.type === event.type);
@@ -126,4 +126,3 @@ export function eventMatchesRules(event: AnyWhapprEvent, entries: EventFilterEnt
   }
   return entries.some((entry) => entry.type === WILDCARD);
 }
-
