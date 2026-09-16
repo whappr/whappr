@@ -33,7 +33,7 @@ Open `http://localhost:3000`, scan the QR code with WhatsApp on your phone
 |---|---|---|
 | `WHAPPR_SECRET` | yes | Shared secret. Signs outgoing webhook requests, gates `POST /api/messages`, and is typed into the UI to confirm logout. Generate with `openssl rand -hex 32`. |
 | `WHAPPR_WEBHOOK_URL` | yes | Inbound text messages are POSTed here. |
-| `WHAPPR_WEBHOOK_FLUSH_INTERVAL` | no (default `2`) | How many seconds to buffer events before POSTing them as one batch. `0` sends each event immediately, with no buffering. |
+| `WHAPPR_WEBHOOK_INTERVAL` | no (default `2`) | How many seconds to buffer events before POSTing them as one batch. `0` sends each event immediately, with no buffering. |
 | `PORT` | no (default `3000`) | HTTP port. |
 | `WHAPPR_SESSION_PATH` | no (default `.wwebjs_auth`) | Where whatsapp-web.js's `LocalAuth` persists the paired session, so you don't have to re-scan the QR on every restart. |
 | `WHAPPR_EVENT_FILTER` | no (default `*`, i.e. every event) | Filter which events get POSTed to the webhook. See "Filtering which events are sent" below. |
@@ -104,7 +104,7 @@ Text message activity is POSTed to `WHAPPR_WEBHOOK_URL` with the same signature 
 request came from this service.
 
 Events aren't sent one-by-one. They're buffered in memory and flushed as a single batch after
-`WHAPPR_WEBHOOK_FLUSH_INTERVAL` seconds (default `2`) — the clock starts on the first event of a new batch,
+`WHAPPR_WEBHOOK_INTERVAL` seconds (default `2`) — the clock starts on the first event of a new batch,
 and everything that arrives before it fires is included in the same POST. Set it to `0` to send
 every event immediately instead, still as a batch of one. The request body is always a JSON array
 of events, even when it holds just one. Delivery of a batch is a single attempt with a 5s timeout;

@@ -7,7 +7,7 @@ const NUMBER_PATTERN = /^-?\d+(\.\d+)?$/;
 
 export type FilterAttributeValue = string | number | boolean;
 
-export interface EventFilterEntry {
+export interface FilterRule {
   type: string;
   attributes: Record<string, FilterAttributeValue>;
 }
@@ -20,21 +20,21 @@ function coerceFilterValue(raw: string): FilterAttributeValue {
 }
 
 function parseAttributeClause(
-  body: string,
-  entryType: string,
+  ruleBody: string,
+  eventType: string,
 ): Record<string, FilterAttributeValue> {
   const attributes: Record<string, FilterAttributeValue> = {};
 
-  for (const rawChunk of body.split('&')) {
+  for (const rawChunk of ruleBody.split('&')) {
     const chunk = rawChunk.trim();
     if (chunk === '') {
-      throw new Error(`empty condition in "${entryType}(...)" — check for a stray "&"`);
+      throw new Error(`empty condition in "${eventType}(...)" — check for a stray "&"`);
     }
 
     const eqIndex = chunk.indexOf('=');
     if (eqIndex === -1) {
       throw new Error(
-        `condition "${chunk}" in "${entryType}(...)" is missing "=" (expected "field=value")`,
+        `condition "${chunk}" in "${eventType}(...)" is missing "=" (expected "field=value")`,
       );
     }
 
@@ -42,7 +42,7 @@ function parseAttributeClause(
     const value = chunk.slice(eqIndex + 1);
 
     if (field === '') {
-      throw new Error(`condition "${chunk}" in "${entryType}(...)" has an empty field name`);
+      throw new Error(`condition "${chunk}" in "${eventType}(...)" has an empty field name`);
     }
 
     // Later conditions override earlier ones for the same field name.
@@ -52,7 +52,7 @@ function parseAttributeClause(
   return attributes;
 }
 
-function parseEntry(raw: string): EventFilterEntry {
+function parseFilterRule(raw: string): FilterRule {
   const openIndex = raw.indexOf('(');
   const type = (openIndex === -1 ? raw : raw.slice(0, openIndex)).trim();
 
@@ -88,19 +88,19 @@ function parseEntry(raw: string): EventFilterEntry {
   return { type, attributes };
 }
 
-function parseFilterExpression(expr: string): EventFilterEntry[] {
-  return expr.split(',').map((raw) => parseEntry(raw.trim()));
+function parseFilterRules(expr: string): FilterRule[] {
+  return expr.split(',').map((raw) => parseFilterRule(raw.trim()));
 }
 
 export function loadFilterRules(
   logger: Logger,
   source: NodeJS.ProcessEnv = process.env,
-): EventFilterEntry[] {
+): FilterRule[] {
   const raw = source[ENV_KEY];
   const expr = raw === undefined || raw.trim() === '' ? WILDCARD : raw;
 
   try {
-    return parseFilterExpression(expr);
+    return parseFilterRules(expr);
   } catch (error) {
     logger.error(
       { error: error instanceof Error ? error : new Error(String(error)) },
@@ -117,12 +117,12 @@ function attributesMatch(attributes: Record<string, FilterAttributeValue>, data:
   return Object.entries(attributes).every(([field, expected]) => record[field] === expected);
 }
 
-export function eventMatchesFilters(event: AnyWhapprEvent, entries: EventFilterEntry[]): boolean {
-  if (entries.length === 0) return true;
+export function eventMatchesRules(event: AnyWhapprEvent, rules: FilterRule[]): boolean {
+  if (rules.length === 0) return true;
 
-  const specific = entries.filter((entry) => entry.type === event.type);
+  const specific = rules.filter((rule) => rule.type === event.type);
   if (specific.length > 0) {
-    return specific.some((entry) => attributesMatch(entry.attributes, event.data));
+    return specific.some((rule) => attributesMatch(rule.attributes, event.data));
   }
-  return entries.some((entry) => entry.type === WILDCARD);
+  return rules.some((rule) => rule.type === WILDCARD);
 }

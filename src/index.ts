@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { loadEnvVars } from './config/env.js';
 import { loadFilterRules } from './events/filter.js';
-import { wireWebhookForwarding } from './events/forwarding.js';
+import { forwardEventsToBuffer } from './events/forwarding.js';
 import { createApp } from './http/app.js';
 import { createRootLogger } from './logging/logger.js';
 import { createWebhookBuffer } from './webhook/buffer.js';
@@ -12,18 +12,18 @@ const env = loadEnvVars();
 const logger = createRootLogger(env.LOG_LEVEL);
 
 const buffer = createWebhookBuffer({
-  webhookUrl: env.WHAPPR_WEBHOOK_URL,
   secret: env.WHAPPR_SECRET,
-  flushInterval: env.WHAPPR_WEBHOOK_FLUSH_INTERVAL,
+  webhookUrl: env.WHAPPR_WEBHOOK_URL,
+  webhookInterval: env.WHAPPR_WEBHOOK_INTERVAL,
   logger,
 });
 
-const filters = loadFilterRules(logger);
+const rules = loadFilterRules(logger);
 
 const client = createWhatsappClient(env);
 const session = createWhatsappSession(client, logger);
 
-wireWebhookForwarding(session.client, buffer, filters, logger);
+forwardEventsToBuffer(session.client, buffer, rules, logger);
 
 const app = createApp({
   secret: env.WHAPPR_SECRET,

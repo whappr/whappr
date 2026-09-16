@@ -8,12 +8,12 @@ export interface WebhookBuffer {
 }
 
 export function createWebhookBuffer(opts: {
-  webhookUrl: string;
   secret: string;
-  flushInterval: number;
+  webhookUrl: string;
+  webhookInterval: number;
   logger: Logger;
 }): WebhookBuffer {
-  const { webhookUrl, secret, flushInterval, logger } = opts;
+  const { webhookUrl, secret, webhookInterval, logger } = opts;
 
   let pending: AnyWhapprEvent[] = [];
   let timer: NodeJS.Timeout | null = null;
@@ -35,13 +35,13 @@ export function createWebhookBuffer(opts: {
     enqueue(event) {
       pending.push(event);
 
-      if (flushInterval === 0) {
+      if (webhookInterval === 0) {
         triggerFlush();
         return;
       }
 
       if (timer === null) {
-        timer = setTimeout(triggerFlush, flushInterval * 1000);
+        timer = setTimeout(triggerFlush, webhookInterval * 1000);
       }
     },
 

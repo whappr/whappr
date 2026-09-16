@@ -6,7 +6,7 @@ const envSchema = z.object({
   WHAPPR_SECRET: z.string().min(16, 'WHAPPR_SECRET must be at least 16 characters'),
   WHAPPR_SESSION_PATH: z.string().default('.wwebjs_auth'),
   WHAPPR_WEBHOOK_URL: z.url('WHAPPR_WEBHOOK_URL must be a valid URL'),
-  WHAPPR_WEBHOOK_FLUSH_INTERVAL: z.coerce.number().int().nonnegative().default(2),
+  WHAPPR_WEBHOOK_INTERVAL: z.coerce.number().int().nonnegative().default(2),
 });
 
 export type Env = z.infer<typeof envSchema>;
