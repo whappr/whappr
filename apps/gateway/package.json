@@ -1,0 +1,26 @@
+{
+  "name": "@whappr/gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lightweight WhatsApp gateway with a REST API. Built on whatsapp-web.js, ships as a Docker image.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "build": "rimraf dist && tsc -p tsconfig.build.json",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@hono/structured-logger": "^1.0.0",
+    "@hono/zod-validator": "^0.9.1",
+    "hono": "^4.13.7",
+    "pino": "^10.3.1",
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.34.7",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6",
+    "tsx": "^4.23.13"
+  }
+}

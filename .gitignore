@@ -4,4 +4,5 @@ dist
 .wwebjs_cache
 .env
 *.log
+*.tsbuildinfo
 .DS_Store

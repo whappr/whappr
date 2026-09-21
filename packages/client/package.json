@@ -1,0 +1,29 @@
+{
+  "name": "@whappr/client",
+  "version": "0.1.0",
+  "description": "Typed HTTP client for the Whappr WhatsApp gateway API.",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "rimraf dist && concurrently \"npm:build:*\" && echo '{\"type\": \"commonjs\"}' > ./dist/cjs/package.json",
+    "build:esm": "tsc -p tsconfig.build.json --outDir ./dist/esm/",
+    "build:cjs": "tsc -p tsconfig.build.json --outDir ./dist/cjs/ --module commonjs --moduleResolution bundler --verbatimModuleSyntax false",
+    "build:types": "tsc -p tsconfig.build.json --outDir ./dist/types/ --declaration --emitDeclarationOnly"
+  }
+}

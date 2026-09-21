@@ -1,40 +1,39 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-    // File Layout
-    "rootDir": "./src",
-    "outDir": "./dist",
-
-    // Environment Settings
-    // See also https://aka.ms/tsconfig/module
+    // Language
+    "target": "es2023",
     "module": "nodenext",
-    "target": "esnext",
-    "lib": ["esnext"],
+    "moduleResolution": "nodenext",
+
+    // Module interop
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    // Decorators
+    // "experimentalDecorators": true,
+    // "emitDecoratorMetadata": true,
+
+    // Output
+    "declaration": true,
+    "removeComments": true,
+    "sourceMap": true,
+    "incremental": true,
+
+    // Types
     "types": ["node"],
 
-    // Other Outputs
-    "sourceMap": true,
-    "declaration": false,
-    "declarationMap": false,
-
-    // Stricter Typechecking Options
+    // Type checking
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowImportingTsExtensions": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-
-    // Style Options
-    // "noImplicitReturns": true,
-    // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noPropertyAccessFromIndexSignature": true,
-
-    // Recommended Options
-    "strict": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+    "noEmit": true
+  },
+  "exclude": ["**/dist", "**/node_modules"]
 }
