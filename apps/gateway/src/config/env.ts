@@ -4,7 +4,8 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   WHAPPR_SECRET: z.string().min(16, 'WHAPPR_SECRET must be at least 16 characters'),
-  WHAPPR_SESSION_PATH: z.string().default('.wwebjs_auth'),
+  WWEB_SESSION_PATH: z.string().default('.wwebjs_auth'),
+  WWEB_CACHE_PATH: z.string().default('.wwebjs_cache'),
   WHAPPR_WEBHOOK_URL: z.url('WHAPPR_WEBHOOK_URL must be a valid URL'),
   WHAPPR_WEBHOOK_INTERVAL: z.coerce.number().int().nonnegative().default(2),
 });

@@ -69,9 +69,29 @@ export const channel = createWhapprChannel({
   secret: process.env.WHAPPR_SECRET!,
   async events({ events }) {
     for (const event of events) {
+      const id = channel.instanceId({ chatId: event.data.from });
+
+      if (event.type === 'cmd.invoked') {
+        await dispatch(Assistant, {
+          id,
+          initialData: { chatId: event.data.from },
+          message: {
+            kind: 'signal',
+            type: 'whappr.command.invoked',
+            body: event.data.args.join(' '),
+            attributes: {
+              command: event.data.command,
+              args: event.data.args,
+              messageId: event.data.id,
+            },
+          },
+        });
+        continue;
+      }
+
       if (event.type !== 'msg.received') continue;
       await dispatch(Assistant, {
-        id: channel.instanceId({ chatId: event.data.from }),
+        id,
         initialData: { chatId: event.data.from },
         message: {
           kind: 'signal',
@@ -84,6 +104,12 @@ export const channel = createWhapprChannel({
   },
 });
 ```
+
+Giving `cmd.invoked` its own signal type (rather than folding it into
+`whappr.message.received`) lets your agent's own routing dispatch to dedicated command handlers,
+the same way you'd wire up per-command logic in a Telegram-style bot framework — `@whappr/flue`
+itself stays agnostic to what a "command" is; that decision lives entirely in your `events()`
+callback.
 
 Replies are sent from your own agent/tool code via [`@whappr/client`](../client) — this package
 never calls WhatsApp back itself.

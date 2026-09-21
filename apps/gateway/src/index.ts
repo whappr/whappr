@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server';
 import { loadEnvVars } from './config/env.js';
+import { loadCommandNames } from './events/commands.js';
 import { loadFilterRules } from './events/filter.js';
 import { forwardEventsToBuffer } from './events/forwarding.js';
 import { createApp } from './http/app.js';
@@ -19,11 +20,12 @@ const buffer = createWebhookBuffer({
 });
 
 const rules = loadFilterRules(logger);
+const commands = loadCommandNames(logger);
 
 const client = createWhatsappClient(env);
 const session = createWhatsappSession(client, logger);
 
-forwardEventsToBuffer(session.client, buffer, rules, logger);
+forwardEventsToBuffer(session.client, buffer, rules, commands, logger);
 
 const app = createApp({
   secret: env.WHAPPR_SECRET,

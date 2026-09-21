@@ -2,7 +2,7 @@
 
 Lightweight WhatsApp gateway. Wraps [whatsapp-web.js](https://wwebjs.dev/) behind a small HTTP API
 ([Hono](https://hono.dev/)), so other systems can send and receive WhatsApp text messages without
-touching WhatsApp Web automation directly. Single account, 1:1 text chats only.
+touching WhatsApp Web automation directly. Single account, text chats only.
 
 ## Install
 
@@ -40,8 +40,10 @@ curl -X POST http://localhost:3000/api/messages \
 | `WHAPPR_WEBHOOK_URL` | yes | Inbound text messages are POSTed here. |
 | `WHAPPR_WEBHOOK_INTERVAL` | no (default `2`) | Seconds to buffer events before POSTing as one batch. `0` disables buffering. |
 | `PORT` | no (default `3000`) | HTTP port. |
-| `WHAPPR_SESSION_PATH` | no (default `.wwebjs_auth`) | Where the paired session is persisted. |
-| `WHAPPR_EVENT_FILTER` | no (default `*`) | Filters which events are sent to the webhook. See "Event filtering" below. |
+| `WWEB_SESSION_PATH` | no (default `.wwebjs_auth`) | Where the paired session is persisted. |
+| `WWEB_CACHE_PATH` | no (default `.wwebjs_cache`) | Where the WhatsApp Web version cache is persisted. |
+| `WHAPPR_EVENTS` | no (default `*`) | Filters which events are sent to the webhook. See "Event filtering" below. |
+| `WHAPPR_COMMANDS` | no (default none) | Comma-separated command names that trigger `cmd.invoked` instead of `msg.received`. See "Commands" below. |
 
 ### API
 
@@ -54,21 +56,45 @@ curl -X POST http://localhost:3000/api/messages \
 
 Delivered as a signed, batched JSON array (buffered per `WHAPPR_WEBHOOK_INTERVAL`, one delivery
 attempt, no retries). Event types: `msg.received`, `msg.sent`, `msg.acked`, `msg.edited`,
-`msg.reacted`, `msg.revoked`.
+`msg.reacted`, `msg.revoked`, `cmd.invoked`.
 
 ### Event filtering
 
-`WHAPPR_EVENT_FILTER` takes a comma-separated list of entries — `*`, a bare type
+`WHAPPR_EVENTS` takes a comma-separated list of entries — `*`, a bare type
 (`msg.received`), or a type with conditions (`msg.received(fromMe=true)`). Type-specific entries
 take precedence over `*` for that type. Example:
 
 ```sh
-WHAPPR_EVENT_FILTER=msg.received(from=1555123456@c.us),*
+WHAPPR_EVENTS=msg.received(from=1555123456@c.us),*
+```
+
+### Commands
+
+`WHAPPR_COMMANDS` is a comma-separated allow-list of command names, e.g.:
+
+```sh
+WHAPPR_COMMANDS=start,help,subscribe
+```
+
+An inbound message whose body starts with `/` followed by one of these names produces a
+`cmd.invoked` event instead of `msg.received` — e.g. `/subscribe daily digest` becomes
+`{ command: "subscribe", args: ["daily", "digest"], ... }` (plus the same `id`/`from`/`to`/
+`author`/`body`/`timestamp` fields as a regular message payload). The match replaces
+`msg.received` for that message; it isn't emitted twice. A `/` message whose name isn't
+configured is left as plain `msg.received` — nothing is silently dropped. This is a whappr text
+convention, not a WhatsApp platform feature: whatsapp-web.js has no native concept of bot
+commands.
+
+There's no separate authorization mechanism — use `WHAPPR_EVENTS` to restrict which
+commands (and from whom) actually reach the webhook, e.g.:
+
+```sh
+WHAPPR_EVENTS=cmd.invoked(command=subscribe),cmd.invoked(command=admin&author=1555123456@c.us)
 ```
 
 ## Known limitations
 
-- Single account, 1:1 text chats only — no groups, no media.
+- Single account, text chats only — no media.
 - No webhook retries — a failed delivery drops the whole batch.
 - No field normalization — payloads use raw whatsapp-web.js field names.
 - No Docker packaging yet.

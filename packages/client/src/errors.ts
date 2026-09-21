@@ -28,9 +28,9 @@ export class WhapprTimeoutError extends WhapprClientError {}
  */
 export class WhapprApiError extends WhapprClientError {
   readonly status: number;
-  readonly code: string | undefined;
+  readonly code?: string;
 
-  constructor(message: string, options: { status: number; code: string | undefined; cause?: unknown }) {
+  constructor(message: string, options: { status: number; code?: string; cause?: unknown }) {
     super(message, { cause: options.cause });
     this.status = options.status;
     this.code = options.code;

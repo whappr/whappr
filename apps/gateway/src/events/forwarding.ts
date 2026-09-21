@@ -1,6 +1,7 @@
 import type { Logger } from '../logging/logger.js';
 import type { WebhookBuffer } from '../webhook/buffer.js';
 import type { WhatsappClient } from '../whatsapp/client.js';
+import { matchCommand } from './commands.js';
 import { eventMatchesRules, type FilterRule } from './filter.js';
 import { type AnyWhapprEvent, createEvent } from './types.js';
 
@@ -8,6 +9,7 @@ export function forwardEventsToBuffer(
   client: WhatsappClient,
   buffer: WebhookBuffer,
   rules: FilterRule[],
+  commands: Set<string>,
   logger: Logger,
 ): void {
   const forwardIfAllowed = (event: AnyWhapprEvent): void => {
@@ -18,7 +20,14 @@ export function forwardEventsToBuffer(
     buffer.enqueue(event);
   };
 
-  client.on('msg.received', (payload) => forwardIfAllowed(createEvent('msg.received', payload)));
+  client.on('msg.received', (payload) => {
+    const match = matchCommand(payload.body, commands);
+    if (match) {
+      forwardIfAllowed(createEvent('cmd.invoked', { ...payload, ...match }));
+      return;
+    }
+    forwardIfAllowed(createEvent('msg.received', payload));
+  });
   client.on('msg.sent', (payload) => forwardIfAllowed(createEvent('msg.sent', payload)));
   client.on('msg.acked', (payload) => forwardIfAllowed(createEvent('msg.acked', payload)));
   client.on('msg.edited', (payload) => forwardIfAllowed(createEvent('msg.edited', payload)));

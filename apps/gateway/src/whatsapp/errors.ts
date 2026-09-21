@@ -6,7 +6,7 @@ export type WhatsappErrorCode =
   | 'OPERATION_FAILED';
 
 export class WhatsappError extends Error {
-  readonly code: WhatsappErrorCode | undefined;
+  readonly code?: WhatsappErrorCode;
 
   constructor(message: string, code?: WhatsappErrorCode, cause?: unknown) {
     super(message, { cause });

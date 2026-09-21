@@ -9,6 +9,7 @@ export interface MessagePayload {
   id: string;
   from: string;
   to: string;
+  author?: string;
   body: string;
   timestamp: number;
   fromMe: boolean;
@@ -43,7 +44,7 @@ export interface MessageRevokedPayload {
   from: string;
   to: string;
   timestamp: number;
-  body: string | null;
+  body?: string;
 }
 
 export interface WhapprEvent<Type extends string = string, Data = unknown> {
@@ -61,10 +62,18 @@ export type MessageEditedEvent = WhapprEvent<'msg.edited', MessageEditPayload>;
 export type MessageReactionEvent = WhapprEvent<'msg.reacted', MessageReactionPayload>;
 export type MessageRevokedEvent = WhapprEvent<'msg.revoked', MessageRevokedPayload>;
 
+export interface CommandInvokedPayload extends MessagePayload {
+  command: string;
+  args: string[];
+}
+
+export type CommandInvokedEvent = WhapprEvent<'cmd.invoked', CommandInvokedPayload>;
+
 export type AnyWhapprEvent =
   | MessageReceivedEvent
   | MessageSentEvent
   | MessageAckEvent
   | MessageEditedEvent
   | MessageReactionEvent
-  | MessageRevokedEvent;
+  | MessageRevokedEvent
+  | CommandInvokedEvent;

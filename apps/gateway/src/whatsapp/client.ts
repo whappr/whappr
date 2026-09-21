@@ -11,6 +11,7 @@ export interface MessagePayload {
   id: string;
   from: string;
   to: string;
+  author?: string;
   body: string;
   timestamp: number;
   fromMe: boolean;
@@ -22,6 +23,7 @@ export function toMessagePayload(message: Message): MessagePayload {
     id: message.id._serialized,
     from: message.from,
     to: message.to,
+    author: message.author,
     body: message.body,
     timestamp: message.timestamp,
     fromMe: message.fromMe,
@@ -99,7 +101,7 @@ export interface MessageRevokedPayload {
   from: string;
   to: string;
   timestamp: number;
-  body: string | null;
+  body?: string;
 }
 
 export function toMessageRevokedPayload(
@@ -111,7 +113,7 @@ export function toMessageRevokedPayload(
     from: message.from,
     to: message.to,
     timestamp: message.timestamp,
-    body: revokedMessage?.body ?? null,
+    body: revokedMessage?.body,
   };
 }
 
@@ -139,7 +141,8 @@ export class WhatsappClient extends EventEmitter<WhatsappClientEventMap> {
     super();
 
     this.#client = new Client({
-      authStrategy: new LocalAuth({ dataPath: env.WHAPPR_SESSION_PATH }),
+      authStrategy: new LocalAuth({ dataPath: env.WWEB_SESSION_PATH }),
+      webVersionCache: { type: 'local', path: env.WWEB_CACHE_PATH },
       puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] },
     });
 

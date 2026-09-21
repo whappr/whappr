@@ -13,6 +13,8 @@ export {
 } from './errors.js';
 export type {
   AnyWhapprEvent,
+  CommandInvokedEvent,
+  CommandInvokedPayload,
   MessageAckEvent,
   MessageAckPayload,
   MessageEditedEvent,

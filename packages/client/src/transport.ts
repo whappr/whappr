@@ -21,8 +21,8 @@ export interface RequestOptions {
 }
 
 interface ParsedErrorEnvelope {
-  code: string | undefined;
-  message: string | undefined;
+  code?: string;
+  message?: string;
 }
 
 function parseErrorEnvelope(text: string): ParsedErrorEnvelope | undefined {

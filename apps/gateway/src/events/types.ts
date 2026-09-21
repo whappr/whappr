@@ -6,6 +6,7 @@ import type {
   MessageReactionPayload,
   MessageRevokedPayload,
 } from '../whatsapp/client.js';
+import type { CommandInvokedPayload } from './commands.js';
 
 export interface WhapprEvent<Type extends string = string, Data = unknown> {
   type: Type;
@@ -20,6 +21,7 @@ export type MessageAckEvent = WhapprEvent<'msg.acked', MessageAckPayload>;
 export type MessageEditedEvent = WhapprEvent<'msg.edited', MessageEditPayload>;
 export type MessageReactionEvent = WhapprEvent<'msg.reacted', MessageReactionPayload>;
 export type MessageRevokedEvent = WhapprEvent<'msg.revoked', MessageRevokedPayload>;
+export type CommandInvokedEvent = WhapprEvent<'cmd.invoked', CommandInvokedPayload>;
 
 // Add new members here as more event types are introduced later — purely additive.
 export type AnyWhapprEvent =
@@ -28,7 +30,8 @@ export type AnyWhapprEvent =
   | MessageAckEvent
   | MessageEditedEvent
   | MessageReactionEvent
-  | MessageRevokedEvent;
+  | MessageRevokedEvent
+  | CommandInvokedEvent;
 
 export function createEvent<Type extends string, Data>(
   type: Type,

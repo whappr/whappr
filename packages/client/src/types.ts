@@ -24,6 +24,7 @@ export interface MessagePayload {
   id: string;
   from: string;
   to: string;
+  author?: string;
   body: string;
   timestamp: number;
   fromMe: boolean;
