@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "description": "Lightweight WhatsApp gateway with a REST API. Built on whatsapp-web.js, ships as a Docker image.",
+  "author": "Alexandru Bau (https://github.com/alexandrubau)",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/index.ts",

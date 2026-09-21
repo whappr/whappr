@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "description": "Whappr monorepo — WhatsApp gateway service, HTTP client, and Flue channel.",
+  "author": "Alexandru Bau (https://github.com/alexandrubau)",
+  "license": "MIT",
   "workspaces": [
     "apps/gateway",
     "packages/client",

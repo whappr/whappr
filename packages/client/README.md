@@ -8,7 +8,7 @@ Typed HTTP client for the [Whappr gateway](../../apps/gateway) API.
 npm install @whappr/client
 ```
 
-## Quick start
+## Usage
 
 ```ts
 import { createWhapprClient } from '@whappr/client';
@@ -25,36 +25,23 @@ if (status.status === 'READY') {
 }
 ```
 
-`baseUrl` is the gateway's address; `secret` must match the gateway's `WHAPPR_SECRET`. The client
-is Node-only (uses `node:crypto` to sign requests) and is meant to run server-side — never ship
-the secret to a browser.
+Node-only (uses `node:crypto` to sign requests) — run it server-side, never ship the secret to a
+browser.
 
-## API
+### API
 
-- `client.health()` — liveness check. Resolves if the gateway is reachable, throws otherwise.
-- `client.session.getStatus()` — current connection status and, while `AWAITING_SCAN`, a QR code
-  data URL.
-- `client.session.logout()` — ends the WhatsApp session. The configured secret is sent
-  automatically; there's nothing to pass.
-- `client.messages.send({ to, text })` — send a message. `to` accepts a bare phone number or a
-  full WhatsApp JID.
+- `client.health()`
+- `client.session.getStatus()` / `client.session.logout()`
+- `client.messages.send({ to, text })`
 - `client.messages.edit(messageId, { text })`
-- `client.messages.delete(messageId)` — deletes for everyone.
-- `client.messages.react(messageId, { emoji })`
-- `client.messages.removeReaction(messageId)`
+- `client.messages.delete(messageId)`
+- `client.messages.react(messageId, { emoji })` / `client.messages.removeReaction(messageId)`
 - `client.messages.reply(messageId, { text })`
 
-## Errors
+### Errors
 
-Every failure is a `WhapprClientError`. Catch that base class to handle any failure the same way,
-or catch one of its subclasses to handle a specific one:
-
-- `WhapprApiError` — the gateway responded with a non-2xx status. Has `.status` (HTTP status) and
-  `.code` (the gateway's error code, e.g. `NOT_READY`, `INVALID_SIGNATURE`, `MESSAGE_NOT_FOUND`),
-  when the response provided one.
-- `WhapprNetworkError` — the request never reached the gateway.
-- `WhapprTimeoutError` — the request was aborted after `timeoutMs` (default 10s) with no response.
-- `WhapprInvalidResponseError` — the gateway returned a 2xx response the client couldn't parse.
+Every failure is a `WhapprClientError`: `WhapprApiError` (non-2xx, has `.status`/`.code`),
+`WhapprNetworkError`, `WhapprTimeoutError`, `WhapprInvalidResponseError`.
 
 ```ts
 import { WhapprApiError, WhapprClientError } from '@whappr/client';
@@ -72,5 +59,10 @@ try {
 }
 ```
 
-These types describe the client's own contract, not the gateway's internals — the client talks
-HTTP today, but that's an implementation detail callers shouldn't need to know about.
+## Contributing
+
+Pull requests accepted.
+
+## License
+
+MIT © [Alexandru Bau](https://github.com/alexandrubau) and Whappr contributors
