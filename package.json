@@ -2,7 +2,7 @@
   "name": "whappr",
   "version": "1.0.0",
   "private": true,
-  "description": "Whappr monorepo — WhatsApp gateway service, HTTP client, and Flue channel.",
+  "description": "Whappr — WhatsApp gateway service and other related components.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
   "license": "MIT",
   "workspaces": [
@@ -13,9 +13,9 @@
   "type": "module",
   "scripts": {
     "build": "npm run build --workspaces",
-    "typecheck": "tsc --noEmit",
     "check": "biome check .",
     "check:fix": "biome check --write .",
+    "typecheck": "tsc --noEmit",
     "changeset:generate": "changeset",
     "changeset:apply": "changeset version",
     "changeset:publish": "changeset publish"

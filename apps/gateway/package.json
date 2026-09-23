@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
-    "@hono/structured-logger": "^1.0.0",
     "@hono/zod-validator": "^0.9.1",
     "hono": "^4.13.7",
     "pino": "^10.3.1",

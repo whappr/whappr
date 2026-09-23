@@ -8,7 +8,7 @@ import {
   requestIdHeaderMiddleware,
   requestIdMiddleware,
 } from './middlewares/request-id.middleware.js';
-import { structuredLoggerMiddleware } from './middlewares/structured-logger.middleware.js';
+import { requestLoggerMiddleware } from './middlewares/request-logger.middleware.js';
 import { createHealthRoute } from './routes/health.js';
 import { createLogoutRoute } from './routes/logout.js';
 import { createMessagesRoute } from './routes/messages.js';
@@ -27,7 +27,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 
   app.use(requestIdMiddleware());
   app.use(requestIdHeaderMiddleware());
-  app.use(structuredLoggerMiddleware(deps.logger));
+  app.use(requestLoggerMiddleware(deps.logger));
 
   app.get('/', serveStatic({ path: './public/index.html' }));
   app.route('/health', createHealthRoute());
