@@ -7,9 +7,14 @@ const NUMBER_PATTERN = /^-?\d+(\.\d+)?$/;
 
 export type FilterAttributeValue = string | number | boolean;
 
+export interface FilterCondition {
+  path: string[];
+  value: FilterAttributeValue;
+}
+
 export interface FilterRule {
   type: string;
-  attributes: Record<string, FilterAttributeValue>;
+  conditions: FilterCondition[];
 }
 
 function coerceFilterValue(raw: string): FilterAttributeValue {
@@ -19,11 +24,19 @@ function coerceFilterValue(raw: string): FilterAttributeValue {
   return raw;
 }
 
-function parseAttributeClause(
-  ruleBody: string,
-  eventType: string,
-): Record<string, FilterAttributeValue> {
-  const attributes: Record<string, FilterAttributeValue> = {};
+function parseFieldPath(field: string, chunk: string, eventType: string): string[] {
+  const path = field.split('.');
+  if (path.some((segment) => segment === '')) {
+    throw new Error(
+      `field "${field}" in condition "${chunk}" of "${eventType}(...)" has an empty path ` +
+        'segment — check for a stray "." (e.g. a leading, trailing, or doubled ".")',
+    );
+  }
+  return path;
+}
+
+function parseAttributeClause(ruleBody: string, eventType: string): FilterCondition[] {
+  const byField: Record<string, FilterCondition> = {};
 
   for (const rawChunk of ruleBody.split('&')) {
     const chunk = rawChunk.trim();
@@ -45,11 +58,13 @@ function parseAttributeClause(
       throw new Error(`condition "${chunk}" in "${eventType}(...)" has an empty field name`);
     }
 
+    const path = parseFieldPath(field, chunk, eventType);
+
     // Later conditions override earlier ones for the same field name.
-    attributes[field] = coerceFilterValue(value);
+    byField[field] = { path, value: coerceFilterValue(value) };
   }
 
-  return attributes;
+  return Object.values(byField);
 }
 
 function parseFilterRule(raw: string): FilterRule {
@@ -64,7 +79,7 @@ function parseFilterRule(raw: string): FilterRule {
   }
 
   if (openIndex === -1) {
-    return { type, attributes: {} };
+    return { type, conditions: [] };
   }
 
   if (type === WILDCARD) {
@@ -84,8 +99,8 @@ function parseFilterRule(raw: string): FilterRule {
     );
   }
 
-  const attributes = body === '' || body === WILDCARD ? {} : parseAttributeClause(body, type);
-  return { type, attributes };
+  const conditions = body === '' || body === WILDCARD ? [] : parseAttributeClause(body, type);
+  return { type, conditions };
 }
 
 function parseFilterRules(expr: string): FilterRule[] {
@@ -110,11 +125,17 @@ export function loadFilterRules(
   }
 }
 
-function attributesMatch(attributes: Record<string, FilterAttributeValue>, data: unknown): boolean {
-  if (Object.keys(attributes).length === 0) return true;
-  if (data === null || typeof data !== 'object') return false;
-  const record = data as Record<string, unknown>;
-  return Object.entries(attributes).every(([field, expected]) => record[field] === expected);
+function readAttributePath(data: unknown, path: string[]): unknown {
+  let current: unknown = data;
+  for (const segment of path) {
+    if (current === null || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
+function attributesMatch(conditions: FilterCondition[], data: unknown): boolean {
+  return conditions.every(({ path, value }) => readAttributePath(data, path) === value);
 }
 
 export function eventMatchesRules(event: AnyWhapprEvent, rules: FilterRule[]): boolean {
@@ -122,7 +143,7 @@ export function eventMatchesRules(event: AnyWhapprEvent, rules: FilterRule[]): b
 
   const specific = rules.filter((rule) => rule.type === event.type);
   if (specific.length > 0) {
-    return specific.some((rule) => attributesMatch(rule.attributes, event.data));
+    return specific.some((rule) => attributesMatch(rule.conditions, event.data));
   }
   return rules.some((rule) => rule.type === WILDCARD);
 }

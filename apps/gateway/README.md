@@ -62,10 +62,13 @@ attempt, no retries). Event types: `msg.received`, `msg.sent`, `msg.acked`, `msg
 
 `WHAPPR_EVENTS` takes a comma-separated list of entries — `*`, a bare type
 (`msg.received`), or a type with conditions (`msg.received(fromMe=true)`). Type-specific entries
-take precedence over `*` for that type. Example:
+take precedence over `*` for that type. A field name may use `.` to reach into nested objects or
+array indices, e.g. `cmd.invoked(args.0=daily)` matches a command whose first argument is
+`daily`. Examples:
 
 ```sh
 WHAPPR_EVENTS=msg.received(from=1555123456@c.us),*
+WHAPPR_EVENTS=cmd.invoked(args.0=daily)
 ```
 
 ### Commands
