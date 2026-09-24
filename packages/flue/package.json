@@ -1,6 +1,6 @@
 {
   "name": "@whappr/flue",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Flue Framework channel for integrating with the Whappr WhatsApp gateway.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
   "license": "MIT",

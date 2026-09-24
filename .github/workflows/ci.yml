@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check
+      - run: npm run typecheck
+
+  release:
+    name: Release
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check for pending changesets
+        id: changesets
+        run: |
+          COUNT=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - if: steps.changesets.outputs.count != '0'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - if: steps.changesets.outputs.count != '0'
+        run: npm ci
+
+      - if: steps.changesets.outputs.count != '0'
+        run: npm run build
+
+      - if: steps.changesets.outputs.count != '0'
+        run: npx changeset version
+
+      - if: steps.changesets.outputs.count != '0'
+        name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: bump package versions [skip ci]"
+
+      - if: steps.changesets.outputs.count != '0'
+        name: Publish to npm
+        run: npx changeset publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - if: steps.changesets.outputs.count != '0'
+        name: Push version bump and tags
+        run: git push origin HEAD:${{ github.ref_name }} --follow-tags
+
+      - if: steps.changesets.outputs.count != '0'
+        name: Check whether gateway's version changed
+        id: gateway
+        run: |
+          if git diff --quiet HEAD~1 HEAD -- apps/gateway/package.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$(node -p "require('./apps/gateway/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        if: steps.gateway.outputs.changed == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        if: steps.gateway.outputs.changed == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push gateway image
+        if: steps.gateway.outputs.changed == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/gateway/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.gateway.outputs.owner }}/whappr-gateway:latest
+            ghcr.io/${{ steps.gateway.outputs.owner }}/whappr-gateway:${{ steps.gateway.outputs.version }}

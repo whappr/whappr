@@ -9,7 +9,7 @@ WORKDIR /whappr
 COPY package.json package-lock.json ./
 COPY apps/gateway/package.json apps/gateway/package.json
 COPY packages/client/package.json packages/client/package.json
-COPY packages/channel/package.json packages/channel/package.json
+COPY packages/flue/package.json packages/flue/package.json
 
 # whatsapp-web.js pulls in puppeteer, which would otherwise download a glibc
 # Chromium build that can't run on Alpine's musl libc anyway. The runtime

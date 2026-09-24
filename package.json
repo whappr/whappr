@@ -15,14 +15,11 @@
     "build": "npm run build --workspaces",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "typecheck": "tsc --noEmit",
-    "changeset:generate": "changeset",
-    "changeset:apply": "changeset version",
-    "changeset:publish": "changeset publish"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
-    "@changesets/cli": "^2.29.8",
+    "@changesets/cli": "^3.0.3",
     "@types/node": "^26.5.0",
     "concurrently": "^9.0.0",
     "rimraf": "^6.1.3",
