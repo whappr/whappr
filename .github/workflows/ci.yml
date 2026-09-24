@@ -22,7 +22,8 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
-      - run: npm run verify
+      - run: npm run check
+      - run: npm run typecheck
 
   release:
     name: Release

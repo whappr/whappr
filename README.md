@@ -32,4 +32,4 @@ Pull requests accepted.
 
 ## License
 
-MIT © [Alexandru Bau](https://github.com/alexandrubau) and Whappr contributors
+MIT © [Alexandru Bau](https://github.com/alexandrubau) and Whappr contributors.

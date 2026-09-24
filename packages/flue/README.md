@@ -116,8 +116,8 @@ never calls WhatsApp back itself.
 
 ## Contributing
 
-Pull requests accepted.
+Pull requests are welcomed.
 
 ## License
 
-MIT © [Alexandru Bau](https://github.com/alexandrubau) and Whappr contributors
+MIT © [Alexandru Bau](https://github.com/alexandrubau) and Whappr contributors.

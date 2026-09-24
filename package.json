@@ -15,8 +15,7 @@
     "build": "npm run build --workspaces",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "typecheck": "tsc --noEmit",
-    "verify": "concurrently -n check,typecheck \"npm run check\" \"npm run typecheck\""
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",

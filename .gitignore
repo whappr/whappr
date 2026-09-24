@@ -1,8 +1,8 @@
 node_modules
 dist
+.env
 .wwebjs_auth
 .wwebjs_cache
-.env
 *.log
-*.tsbuildinfo
 .DS_Store
+*.tsbuildinfo

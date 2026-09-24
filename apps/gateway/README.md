@@ -104,8 +104,8 @@ WHAPPR_EVENTS=cmd.invoked(command=subscribe),cmd.invoked(command=admin&author=15
 
 ## Contributing
 
-Pull requests accepted.
+Pull requests are welcomed.
 
 ## License
 
-MIT © [Alexandru Bau](https://github.com/alexandrubau) and Whappr contributors
+MIT © [Alexandru Bau](https://github.com/alexandrubau) and Whappr contributors.
