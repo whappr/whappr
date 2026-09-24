@@ -29,7 +29,7 @@ if (status.status === 'READY') {
 }
 ```
 
-Node-only (uses `node:crypto` to sign requests) — run it server-side, never ship the secret to a browser.
+Works in Node and in browsers.
 
 ### API
 
@@ -68,7 +68,7 @@ Every failure extends `WhapprClientError`, so one `catch` handles them all — o
 - `WhapprApiError` — the gateway returned an error response; check `.status` and `.code` (e.g. `NOT_READY`)
 - `WhapprNetworkError` — the request couldn't reach the gateway
 - `WhapprTimeoutError` — the request timed out
-- `WhapprInvalidResponseError` — the gateway returned a malformed response
+- `WhapprParseError` — the gateway returned a malformed response
 
 ```ts
 import { WhapprApiError, WhapprClientError } from '@whappr/client';

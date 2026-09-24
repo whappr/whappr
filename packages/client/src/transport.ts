@@ -1,7 +1,7 @@
 import {
   WhapprApiError,
-  WhapprInvalidResponseError,
   WhapprNetworkError,
+  WhapprParseError,
   WhapprTimeoutError,
 } from './errors.js';
 import { signPayload, WHAPPR_SIGNATURE_HEADER, WHAPPR_TIMESTAMP_HEADER } from './signature.js';
@@ -72,7 +72,7 @@ export function createTransport(config: TransportConfig): Transport {
       headers['Content-Type'] = 'application/json';
     }
     if (options.sign) {
-      const { timestamp, signature } = signPayload(config.secret, rawBody);
+      const { timestamp, signature } = await signPayload(config.secret, rawBody);
       headers[WHAPPR_TIMESTAMP_HEADER] = timestamp;
       headers[WHAPPR_SIGNATURE_HEADER] = signature;
     }
@@ -122,7 +122,7 @@ export function createTransport(config: TransportConfig): Transport {
     try {
       return JSON.parse(text) as T;
     } catch (cause) {
-      throw new WhapprInvalidResponseError(`Response from ${options.path} was not valid JSON`, {
+      throw new WhapprParseError(`Response from ${options.path} was not valid JSON`, {
         cause,
       });
     }

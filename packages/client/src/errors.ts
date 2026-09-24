@@ -38,4 +38,4 @@ export class WhapprApiError extends WhapprClientError {
 }
 
 /** The Gateway returned a 2xx response whose body didn't match what was expected. */
-export class WhapprInvalidResponseError extends WhapprClientError {}
+export class WhapprParseError extends WhapprClientError {}

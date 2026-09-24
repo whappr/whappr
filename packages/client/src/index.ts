@@ -3,8 +3,8 @@ export { createWhapprClient } from './client.js';
 export {
   WhapprApiError,
   WhapprClientError,
-  WhapprInvalidResponseError,
   WhapprNetworkError,
+  WhapprParseError,
   WhapprTimeoutError,
 } from './errors.js';
 export type { MessagesApi } from './namespaces/messages.js';
