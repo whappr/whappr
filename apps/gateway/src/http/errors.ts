@@ -28,8 +28,14 @@ export const handleError: ErrorHandler<AppEnv> = (error, c) => {
     );
   }
   if (error instanceof HTTPException) {
-    return c.json({ error: { code: codeForStatus(error.status), message: error.message } }, error.status);
+    return c.json(
+      { error: { code: codeForStatus(error.status), message: error.message } },
+      error.status,
+    );
   }
   c.var.logger.error({ error }, 'unhandled error');
-  return c.json({ error: { code: 'INTERNAL_SERVER_ERROR', message: 'Internal Server Error' } }, 500);
+  return c.json(
+    { error: { code: 'INTERNAL_SERVER_ERROR', message: 'Internal Server Error' } },
+    500,
+  );
 };
