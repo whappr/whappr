@@ -1,6 +1,6 @@
 {
   "name": "@whappr/gateway",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Lightweight WhatsApp gateway with a REST API. Built on whatsapp-web.js, ships as a Docker image.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
