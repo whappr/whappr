@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dy/@whappr/client)](https://www.npmjs.com/package/@whappr/client)
 [![Last commit](https://img.shields.io/github/last-commit/whappr/whappr/main)](https://github.com/whappr/whappr/commits/main)
 
-Client for [Whappr](https://github.com/whappr/whappr).
+Web API-compatible client for [Whappr](https://github.com/whappr/whappr).
 
 ## Install
 
@@ -29,7 +29,25 @@ if (status.status === 'READY') {
 }
 ```
 
-Works in Node and in browsers.
+### Options
+
+`createWhapprClient(options)` accepts:
+
+| Option | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `baseUrl` | `string` | Yes | — | Base URL of the Gateway, e.g. `"https://gateway.example.com"`. |
+| `secret` | `string` | Yes | — | Shared secret configured on the Gateway as `WHAPPR_SECRET`. Used to HMAC-sign requests (e.g. `messages.*`) and sent directly on others (e.g. `session.logout()`). |
+| `fetch` | `typeof fetch` | No | global `fetch` | Override the `fetch` implementation used for requests — useful for testing or environments without a global `fetch`. |
+| `timeoutMs` | `number` | No | `10000` | Per-request timeout in milliseconds. Requests that exceed this throw `WhapprTimeoutError`. |
+
+```ts
+const client = createWhapprClient({
+  baseUrl: 'https://gateway.example.com',
+  secret: process.env.WHAPPR_SECRET!,
+  timeoutMs: 5_000,
+  fetch: customFetch, // e.g. undici's fetch, or a mock for tests
+});
+```
 
 ### API
 
