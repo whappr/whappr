@@ -1,6 +1,6 @@
 {
   "name": "@whappr/client",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Typed HTTP client for the Whappr WhatsApp gateway API.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
   "license": "MIT",
