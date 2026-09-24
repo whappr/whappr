@@ -7,3 +7,8 @@
 **/.wwebjs_auth
 **/.wwebjs_cache
 **/*.log
+.changeset
+.github
+.claude
+**/.DS_Store
+*.tsbuildinfo

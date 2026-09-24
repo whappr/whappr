@@ -12,6 +12,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    concurrency:
+      group: test-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -19,8 +22,7 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
-      - run: npm run check
-      - run: npm run typecheck
+      - run: npm run verify
 
   release:
     name: Release
@@ -109,6 +111,8 @@ jobs:
           context: .
           file: apps/gateway/Dockerfile
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.gateway.outputs.owner }}/whappr-gateway:latest
             ghcr.io/${{ steps.gateway.outputs.owner }}/whappr-gateway:${{ steps.gateway.outputs.version }}
