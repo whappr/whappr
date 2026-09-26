@@ -40,11 +40,14 @@ export function createWhapprWebhookHandler<E extends Env>(
 
     // Verify against the exact raw bytes received, before any parsing — a
     // re-serialized JSON object would not reproduce the same signature.
-    if (
-      !verifySignature(options.secret, timestamp, text, signature, options.maxSignatureAgeSeconds)
-    ) {
-      return response(401);
-    }
+    const verified = await verifySignature(
+      options.secret,
+      timestamp,
+      text,
+      signature,
+      options.maxSignatureAgeSeconds,
+    );
+    if (!verified) return response(401);
 
     const raw = parseJson(text);
     if (!Array.isArray(raw)) return response(400);

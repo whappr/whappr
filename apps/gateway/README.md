@@ -34,16 +34,17 @@ curl -X POST http://localhost:3000/api/messages \
 
 ### Environment variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `WHAPPR_SECRET` | yes | Shared secret. Signs webhook requests and gates `POST /api/messages`. |
-| `WHAPPR_WEBHOOK_URL` | yes | Inbound text messages are POSTed here. |
-| `WHAPPR_WEBHOOK_INTERVAL` | no (default `2`) | Seconds to buffer events before POSTing as one batch. `0` disables buffering. |
-| `PORT` | no (default `3000`) | HTTP port. |
-| `WWEB_SESSION_PATH` | no (default `.wwebjs_auth`) | Where the paired session is persisted. |
-| `WWEB_CACHE_PATH` | no (default `.wwebjs_cache`) | Where the WhatsApp Web version cache is persisted. |
-| `WHAPPR_EVENTS` | no (default `*`) | Filters which events are sent to the webhook. See "Event filtering" below. |
-| `WHAPPR_COMMANDS` | no (default none) | Comma-separated command names that trigger `cmd.invoked` instead of `msg.received`. See "Commands" below. |
+| Variable | Description |
+|---|---|
+| `WHAPPR_SECRET` | Required. Shared secret. Signs webhook requests and gates `POST /api/messages`. |
+| `WHAPPR_WEBHOOK_URL` | Required. Inbound text messages are POSTed here. |
+| `PORT` | HTTP port (default `3000`). |
+| `LOG_LEVEL` | Log verbosity: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (default `info`). |
+| `WWEB_SESSION_PATH` | Where the paired session is persisted (default `.wwebjs_auth`). |
+| `WWEB_CACHE_PATH` | Where the WhatsApp Web version cache is persisted (default `.wwebjs_cache`). |
+| `WHAPPR_WEBHOOK_INTERVAL` | Seconds to buffer events before POSTing as one batch (default `2`). `0` disables buffering. |
+| `WHAPPR_EVENTS` | Filters which events are sent to the webhook (default `*`). See "Event filtering" below. |
+| `WHAPPR_COMMANDS` | Comma-separated command names that trigger `cmd.invoked` instead of `msg.received` (default none). See "Commands" below. |
 
 ### API
 

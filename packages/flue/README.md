@@ -1,6 +1,6 @@
 # @whappr/flue
 
-Verified [Whappr gateway](../../apps/gateway) webhook ingress for [Flue](https://flueframework.com) applications.
+Official [Whappr](https://github.com/whappr/whappr) channel for [Flue](https://flueframework.com). Web API-compatible, deployable on edge runtimes.
 
 ## Install
 
