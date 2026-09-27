@@ -15,14 +15,14 @@ Requires Node.js 24+. Installs dependencies for every workspace into a single ro
 
 ### Apps
 
-- [`@whappr/gateway`](apps/gateway) — lightweight WhatsApp gateway. Wraps whatsapp-web.js behind a
+- [`@whappr/gateway`](https://github.com/whappr/whappr/tree/main/apps/gateway) — lightweight WhatsApp gateway. Wraps whatsapp-web.js behind a
   small HTTP API so other systems can send and receive WhatsApp messages, without touching
   WhatsApp Web automation directly.
 
 ### Packages
 
-- [`@whappr/client`](packages/client) — typed HTTP client for the gateway API.
-- [`@whappr/flue`](packages/flue) — verified gateway webhook ingress for Flue applications.
+- [`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client) — typed HTTP client for the gateway API.
+- [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) — verified gateway webhook ingress for Flue applications.
 
 Each one's own README has full install/usage details and API reference.
 

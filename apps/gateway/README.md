@@ -1,17 +1,67 @@
 # @whappr/gateway
 
-Lightweight WhatsApp gateway. Wraps [whatsapp-web.js](https://wwebjs.dev/) behind a small HTTP API
-([Hono](https://hono.dev/)), so other systems can send and receive WhatsApp text messages without
-touching WhatsApp Web automation directly. Single account, text chats only.
+Lightweight WhatsApp gateway. Built on [whatsapp-web.js](https://wwebjs.dev/) and
+[Hono](https://hono.dev/), shipped as a Docker image.
+
+Talk to it with [`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client) or ingest its webhooks
+with [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) for Flue apps.
+
+## Features
+
+- **Simple, few dependencies** — a thin Hono API in front of whatsapp-web.js, no extra framework,
+  ORM, or queue in between.
+- **No database** — messages pass straight through to your webhook and aren't stored anywhere. The
+  only thing persisted is the paired WhatsApp session.
+- **Signed end-to-end** — inbound webhooks and outbound API calls are both HMAC-signed with the same
+  shared secret.
+- **Fine-grained event filtering** — `WHAPPR_EVENTS` controls exactly which events reach your
+  webhook, down to individual field values.
+- **Built-in bot commands** — `WHAPPR_COMMANDS` recognizes `/command` messages as commands, emitting a
+  parsed `cmd.invoked`.
 
 ## Install
 
+The gateway ships as a Docker image published to `ghcr.io/whappr/whappr-gateway` — tagged `latest`
+and per-release (e.g. `1.0.0`). Set at
+least `WHAPPR_SECRET` and `WHAPPR_WEBHOOK_URL` (see "Environment variables" below), then run it
+either way:
+
+### Using `docker run`
+
 ```sh
-npm install         # from the repo root — installs every workspace
-cp .env.dist .env
-# edit .env — see "Environment variables" below
-npm run dev -w apps/gateway
+docker run -p 3000:3000 \
+  -e WHAPPR_SECRET=your-shared-secret \
+  -e WHAPPR_WEBHOOK_URL=https://example.com/webhook \
+  -v whappr-session:/whappr/apps/gateway/.wwebjs_auth \
+  ghcr.io/whappr/whappr-gateway:latest
 ```
+
+### Using Docker Compose
+
+```yaml
+# docker-compose.yml
+services:
+  gateway:
+    image: ghcr.io/whappr/whappr-gateway:latest
+    environment:
+      WHAPPR_SECRET: your-shared-secret
+      WHAPPR_WEBHOOK_URL: https://example.com/webhook
+    ports:
+      - "3000:3000"
+    volumes:
+      - whappr-session:/whappr/apps/gateway/.wwebjs_auth
+    restart: unless-stopped
+
+volumes:
+  whappr-session:
+```
+
+```sh
+docker compose up
+```
+
+Either way, the `whappr-session` volume persists the paired WhatsApp session across restarts, so
+you don't have to re-scan the QR code every time.
 
 ## Usage
 
@@ -36,7 +86,7 @@ curl -X POST http://localhost:3000/api/messages \
 
 | Variable | Description |
 |---|---|
-| `WHAPPR_SECRET` | Required. Shared secret. Signs webhook requests and gates `POST /api/messages`. |
+| `WHAPPR_SECRET` | Required, min 16 characters. Signs webhook requests and gates the `/api/messages*` routes. |
 | `WHAPPR_WEBHOOK_URL` | Required. Inbound text messages are POSTed here. |
 | `PORT` | HTTP port (default `3000`). |
 | `LOG_LEVEL` | Log verbosity: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (default `info`). |
@@ -48,10 +98,63 @@ curl -X POST http://localhost:3000/api/messages \
 
 ### API
 
-- `GET /api/status` — no auth. `{ status, qr }`, polled by the UI.
-- `POST /api/logout` — `{ "secret": "<WHAPPR_SECRET>" }`.
-- `POST /api/messages` — send a text message (see Usage above for signing). `{ to, text }` →
-  `{ message }`.
+#### Health
+
+- `GET /health` — no auth. `{ ok: true }`.
+
+#### Session
+
+- `GET /api/status` — no auth. `{ status, qr }` — see "Session state" below. Polled by the bundled
+  UI at `/`.
+- `POST /api/logout` — `{ "secret": "<WHAPPR_SECRET>" }` → `202 { ok: true }`. `401` if the secret
+  doesn't match.
+
+#### Messages
+
+Every route below is HMAC-signed (see Usage above) and requires the session to be `READY`, or it
+fails with `NOT_READY` (see Errors).
+
+- `POST /api/messages` — send a text message. `{ to, text }` → `201 { message }`.
+- `PATCH /api/messages/:id` — edit a message you sent. `{ text }` → `200 { message }`. The
+  returned `message` here is an edit record (`id, from, to, timestamp, newBody, oldBody`) — a
+  different shape than `message` from send/reply below.
+- `DELETE /api/messages/:id` — delete a message for everyone. → `204`.
+- `POST /api/messages/:id/reactions` — set an emoji reaction. `{ emoji }` → `204`.
+- `DELETE /api/messages/:id/reactions` — clear the reaction. → `204`.
+- `POST /api/messages/:id/replies` — send a text message as a reply. `{ text }` → `201 { message }`.
+
+`GET /` serves the bundled pairing/status UI (`public/index.html`) — it isn't part of the API above.
+
+### Session state
+
+`GET /api/status` returns `{ status, qr }`. `status` is one of:
+
+| Status | Meaning |
+|---|---|
+| `CREATED` | Session created, initialization not started yet. |
+| `INITIALIZING` | Starting whatsapp-web.js / Puppeteer. |
+| `AWAITING_SCAN` | QR ready — `qr` is a data URL to render or scan. |
+| `AUTHENTICATED` | Paired, waiting for WhatsApp Web to finish loading. |
+| `READY` | Connected — messages can be sent. |
+| `INIT_FAILED` | Initialization threw. |
+| `AUTH_FAILED` | WhatsApp rejected authentication. |
+| `DISCONNECTED` | Session dropped. The gateway restarts it automatically. |
+
+### Errors
+
+Every error response is `{ error: { code, message } }`. Domain-specific codes:
+
+| Code | Status | Meaning |
+|---|---|---|
+| `NOT_READY` | 503 | Session isn't `READY` yet. |
+| `MESSAGE_NOT_FOUND` | 404 | No message with that id. |
+| `EDIT_NOT_ALLOWED` | 409 | WhatsApp no longer allows editing this message (e.g. too old). |
+| `NOT_AUTHENTICATED` | 409 | `POST /api/logout` called with no authenticated session. |
+| `OPERATION_FAILED` | 502 | whatsapp-web.js/WhatsApp Web rejected the operation. |
+
+Other failures (invalid signature, malformed body, unknown route, unexpected errors) use the same
+shape with a status-derived code, e.g. `UNAUTHORIZED`, `BAD_REQUEST`, `NOT_FOUND`,
+`INTERNAL_SERVER_ERROR`.
 
 ### Webhook events
 
@@ -63,13 +166,11 @@ attempt, no retries). Event types: `msg.received`, `msg.sent`, `msg.acked`, `msg
 
 `WHAPPR_EVENTS` takes a comma-separated list of entries — `*`, a bare type
 (`msg.received`), or a type with conditions (`msg.received(fromMe=true)`). Type-specific entries
-take precedence over `*` for that type. A field name may use `.` to reach into nested objects or
-array indices, e.g. `cmd.invoked(args.0=daily)` matches a command whose first argument is
-`daily`. Examples:
+take precedence over `*` for that type. A field name may use `.` to reach into a nested field or
+array index, should a future event carry one. Example:
 
 ```sh
 WHAPPR_EVENTS=msg.received(from=1555123456@c.us),*
-WHAPPR_EVENTS=cmd.invoked(args.0=daily)
 ```
 
 ### Commands
@@ -90,18 +191,29 @@ convention, not a WhatsApp platform feature: whatsapp-web.js has no native conce
 commands.
 
 There's no separate authorization mechanism — use `WHAPPR_EVENTS` to restrict which
-commands (and from whom) actually reach the webhook, e.g.:
+commands (and from whom) actually reach the webhook. `args` is an array, so a field path can
+index into it with `.0`, `.1`, etc. — e.g. `cmd.invoked(args.0=daily)` matches a command whose
+first argument is `daily`:
 
 ```sh
 WHAPPR_EVENTS=cmd.invoked(command=subscribe),cmd.invoked(command=admin&author=1555123456@c.us)
+WHAPPR_EVENTS=cmd.invoked(args.0=daily)
 ```
 
-## Known limitations
+## Development
 
-- Single account, text chats only — no media.
-- No webhook retries — a failed delivery drops the whole batch.
-- No field normalization — payloads use raw whatsapp-web.js field names.
-- No Docker packaging yet.
+To work on the gateway itself instead of just running the image, clone the monorepo and run it
+from source:
+
+```sh
+npm install                                  # from the repo root — installs every workspace
+cp apps/gateway/.env.dist apps/gateway/.env
+# edit apps/gateway/.env — see "Environment variables" above
+npm run dev -w apps/gateway
+```
+
+`npm run build -w apps/gateway && npm start -w apps/gateway` runs the compiled output directly
+with Node, the same way the Docker image's `CMD` does, without building the image itself.
 
 ## Contributing
 
