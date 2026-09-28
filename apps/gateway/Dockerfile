@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1
 
-FROM node:alpine AS build
+FROM node:24-alpine AS build
 WORKDIR /whappr
+
+ENV NODE_ENV=development \
+    PUPPETEER_SKIP_DOWNLOAD=true
 
 # Manifests only, for layer caching. All three workspace package.json files
 # are needed so npm can resolve the workspace graph declared in the root
@@ -11,11 +14,6 @@ COPY apps/gateway/package.json apps/gateway/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/flue/package.json packages/flue/package.json
 
-# whatsapp-web.js pulls in puppeteer, which would otherwise download a glibc
-# Chromium build that can't run on Alpine's musl libc anyway. The runtime
-# stage installs Alpine's own system Chromium instead.
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-
 RUN npm ci --workspace apps/gateway --include-workspace-root
 
 COPY tsconfig.json tsconfig.build.json ./
@@ -23,31 +21,42 @@ COPY apps/gateway apps/gateway
 
 RUN npm run build --workspace apps/gateway
 
-# Reinstall production-only deps in place for a clean, deterministic result.
-RUN rm -rf node_modules apps/gateway/node_modules
-RUN npm ci --omit=dev --workspace apps/gateway --include-workspace-root
+FROM node:24-alpine AS runtime
+WORKDIR /whappr
 
+ENV NODE_ENV=production \
+    PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-FROM node:alpine AS runtime
-WORKDIR /whappr/apps/gateway
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --spider -q http://127.0.0.1:${PORT:-3000}/health || exit 1
 
 # Alpine's system Chromium (works on musl) plus the shared libs it needs to
 # render headless, and tini as PID 1 to reap the Chromium child processes
 # whatsapp-web.js/Puppeteer spawns.
 RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont tini
-RUN chown node:node /whappr/apps/gateway
 
-ENV PUPPETEER_SKIP_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
-    NODE_ENV=production
+# Manifests only, kept separate from the compiled app below so this layer's
+# cache only busts when dependencies actually change, not on every source edit.
+COPY package.json package-lock.json ./
+COPY apps/gateway/package.json apps/gateway/package.json
+COPY packages/client/package.json packages/client/package.json
+COPY packages/flue/package.json packages/flue/package.json
 
-COPY --from=build --chown=node:node /whappr/node_modules /whappr/node_modules
-COPY --from=build --chown=node:node /whappr/apps/gateway/dist ./dist
-COPY --from=build --chown=node:node /whappr/apps/gateway/package.json ./package.json
-COPY --chown=node:node apps/gateway/public ./public
+RUN npm ci --omit=dev --omit=optional --workspace apps/gateway --include-workspace-root
+
+COPY --from=build /whappr/apps/gateway/dist apps/gateway/dist
+COPY apps/gateway/public apps/gateway/public
+
+RUN chown -R node:node apps/gateway
 
 USER node
 
-EXPOSE 3000
+# Switches cwd for the app itself (./public and its default session dir
+# resolve relative to this), separate from /whappr above which npm needed
+# for workspace resolution.
+WORKDIR /whappr/apps/gateway
+
 ENTRYPOINT ["tini", "--"]
 CMD ["node", "dist/index.js"]
