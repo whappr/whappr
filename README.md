@@ -8,7 +8,7 @@ Lightweight WhatsApp gateway. Built on [whatsapp-web.js](https://wwebjs.dev/) an
 [Hono](https://hono.dev/), shipped as a Docker image.
 
 Talk to it with [`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client) or ingest its webhooks
-with [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) for Flue apps. See [Ecosystem](#ecosystem) below.
+with [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) for Flue apps.
 
 ## Features
 
@@ -90,29 +90,6 @@ filtering and bot commands are documented in the
   Web API-compatible runtime, including edge.
 - [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) — verified webhook ingress for [Flue](https://flueframework.com) apps. Turns
   gateway events into signals for your Flue agents.
-
-## Development
-
-This is an npm workspaces monorepo — every app and package is independently versioned and built.
-
-```sh
-npm install
-```
-
-Requires Node.js 24+. Installs dependencies for every workspace into a single root `node_modules`.
-
-To work on the gateway itself instead of just running the image:
-
-```sh
-cp apps/gateway/.env.dist apps/gateway/.env
-# edit apps/gateway/.env — see the gateway README's "Environment variables"
-npm run dev -w apps/gateway
-```
-
-See each workspace's own README for its full install/usage details and API reference:
-[`apps/gateway`](https://github.com/whappr/whappr/tree/main/apps/gateway),
-[`packages/client`](https://github.com/whappr/whappr/tree/main/packages/client),
-[`packages/flue`](https://github.com/whappr/whappr/tree/main/packages/flue).
 
 ## Contributing
 
