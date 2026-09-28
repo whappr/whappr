@@ -1,5 +1,9 @@
 # @whappr/gateway
 
+[![CI](https://img.shields.io/github/actions/workflow/status/whappr/whappr/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&color=2088FF&label=CI)](https://github.com/whappr/whappr/actions/workflows/ci.yml)
+[![Docker image version](https://img.shields.io/github/package-json/v/whappr/whappr?filename=apps%2Fgateway%2Fpackage.json&style=for-the-badge&logo=docker&logoColor=white&color=2496ED&label=version)](https://github.com/whappr/whappr/pkgs/container/whappr-gateway)
+[![Last commit](https://img.shields.io/github/last-commit/whappr/whappr/main?style=for-the-badge&logo=github&logoColor=white&color=181717)](https://github.com/whappr/whappr/commits/main)
+
 Lightweight WhatsApp gateway. Built on [whatsapp-web.js](https://wwebjs.dev/) and
 [Hono](https://hono.dev/), shipped as a Docker image.
 
@@ -8,16 +12,11 @@ with [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) 
 
 ## Features
 
-- **Simple, few dependencies** — a thin Hono API in front of whatsapp-web.js, no extra framework,
-  ORM, or queue in between.
-- **No database** — messages pass straight through to your webhook and aren't stored anywhere. The
-  only thing persisted is the paired WhatsApp session.
-- **Signed end-to-end** — inbound webhooks and outbound API calls are both HMAC-signed with the same
-  shared secret.
-- **Fine-grained event filtering** — `WHAPPR_EVENTS` controls exactly which events reach your
-  webhook, down to individual field values.
-- **Built-in bot commands** — `WHAPPR_COMMANDS` recognizes `/command` messages as commands, emitting a
-  parsed `cmd.invoked`.
+- **Simple, few dependencies** — a thin Hono API in front of whatsapp-web.js, no extra framework.
+- **No database** — messages pass straight through to your webhook and aren't stored anywhere.
+- **Signed end-to-end** — inbound webhooks and outbound API calls are both HMAC-signed.
+- **Fine-grained event filtering** — `WHAPPR_EVENTS` controls which events reach your webhook.
+- **Built-in bot commands** — `WHAPPR_COMMANDS` recognizes `/command` messages as commands.
 
 ## Install
 
@@ -32,7 +31,7 @@ either way:
 docker run -p 3000:3000 \
   -e WHAPPR_SECRET=your-shared-secret \
   -e WHAPPR_WEBHOOK_URL=https://example.com/webhook \
-  -v whappr-session:/whappr/apps/gateway/.wwebjs_auth \
+  -v wweb-session:/whappr/apps/gateway/.wwebjs_auth \
   ghcr.io/whappr/whappr-gateway:latest
 ```
 
@@ -49,11 +48,11 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - whappr-session:/whappr/apps/gateway/.wwebjs_auth
+      - wweb-session:/whappr/apps/gateway/.wwebjs_auth
     restart: unless-stopped
 
 volumes:
-  whappr-session:
+  wweb-session:
 ```
 
 ```sh
