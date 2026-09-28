@@ -1,0 +1,5 @@
+---
+"@whappr/client": patch
+---
+
+Update
