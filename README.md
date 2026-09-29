@@ -1,6 +1,6 @@
 # Whappr
 
-[![CI](https://img.shields.io/github/actions/workflow/status/whappr/whappr/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&color=2088FF&label=CI)](https://github.com/whappr/whappr/actions/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/whappr/whappr/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/whappr/whappr/actions/workflows/ci.yml)
 [![Docker image version](https://img.shields.io/github/package-json/v/whappr/whappr?filename=apps%2Fgateway%2Fpackage.json&style=for-the-badge&logo=docker&logoColor=white&color=2496ED&label=version)](https://github.com/whappr/whappr/pkgs/container/whappr-gateway)
 [![Last commit](https://img.shields.io/github/last-commit/whappr/whappr/main?style=for-the-badge&logo=github&logoColor=white&color=181717)](https://github.com/whappr/whappr/commits/main)
 
@@ -58,7 +58,7 @@ volumes:
 docker compose up
 ```
 
-Either way, the `whappr-session` volume persists the paired WhatsApp session across restarts, so
+Either way, the `wweb-session` volume persists the paired WhatsApp session across restarts, so
 you don't have to re-scan the QR code every time.
 
 ## Usage
@@ -93,7 +93,7 @@ filtering and bot commands are documented in the
 
 ## Contributing
 
-Pull requests accepted.
+Pull requests are welcomed.
 
 ## License
 
