@@ -33,7 +33,7 @@ either way:
 docker run -p 3000:3000 \
   -e SECRET_KEY=your-shared-secret \
   -e WEBHOOK_URL=https://example.com/webhook \
-  -v wweb-session:/whappr/apps/gateway/.wwebjs_auth \
+  -v whappr-session:/whappr/apps/gateway/.wwebjs_auth \
   ghcr.io/whappr/whappr-gateway:latest
 ```
 
@@ -50,11 +50,11 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - wweb-session:/whappr/apps/gateway/.wwebjs_auth
+      - whappr-session:/whappr/apps/gateway/.wwebjs_auth
     restart: unless-stopped
 
 volumes:
-  wweb-session:
+  whappr-session:
 ```
 
 ```sh
