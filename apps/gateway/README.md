@@ -17,22 +17,22 @@ with [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) 
 - **Simple, few dependencies** — a thin Hono API in front of whatsapp-web.js, no extra framework.
 - **No database** — messages pass straight through to your webhook and aren't stored anywhere.
 - **Signed end-to-end** — inbound webhooks and outbound API calls are both HMAC-signed.
-- **Fine-grained event filtering** — `WHAPPR_EVENTS` controls which events reach your webhook.
-- **Built-in bot commands** — `WHAPPR_COMMANDS` recognizes `/command` messages as commands.
+- **Fine-grained event filtering** — `EVENTS_REGISTRY` controls which events reach your webhook.
+- **Built-in bot commands** — `COMMANDS_REGISTRY` recognizes `/command` messages as commands.
 
 ## Install
 
 The gateway ships as a Docker image published to `ghcr.io/whappr/whappr-gateway` — tagged `latest`
 and per-release (e.g. `1.0.0`). Set at
-least `WHAPPR_SECRET` and `WHAPPR_WEBHOOK_URL` (see "Environment variables" below), then run it
+least `SECRET_KEY` and `WEBHOOK_URL` (see "Environment variables" below), then run it
 either way:
 
 ### Using `docker run`
 
 ```sh
 docker run -p 3000:3000 \
-  -e WHAPPR_SECRET=your-shared-secret \
-  -e WHAPPR_WEBHOOK_URL=https://example.com/webhook \
+  -e SECRET_KEY=your-shared-secret \
+  -e WEBHOOK_URL=https://example.com/webhook \
   -v wweb-session:/whappr/apps/gateway/.wwebjs_auth \
   ghcr.io/whappr/whappr-gateway:latest
 ```
@@ -45,8 +45,8 @@ services:
   gateway:
     image: ghcr.io/whappr/whappr-gateway:latest
     environment:
-      WHAPPR_SECRET: your-shared-secret
-      WHAPPR_WEBHOOK_URL: https://example.com/webhook
+      SECRET_KEY: your-shared-secret
+      WEBHOOK_URL: https://example.com/webhook
     ports:
       - "3000:3000"
     volumes:
@@ -68,7 +68,7 @@ you don't have to re-scan the QR code every time.
 
 Open `http://localhost:3000` and scan the QR code with WhatsApp on your phone
 (*Linked devices → Link a device*). Once paired, inbound text messages are POSTed to
-`WHAPPR_WEBHOOK_URL`, and you can send messages back through the API:
+`WEBHOOK_URL`, and you can send messages back through the API:
 
 ```sh
 SECRET=your-secret
@@ -87,15 +87,15 @@ curl -X POST http://localhost:3000/api/messages \
 
 | Variable | Description |
 |---|---|
-| `WHAPPR_SECRET` | Required, min 16 characters. Signs webhook requests and gates the `/api/messages*` routes. |
-| `WHAPPR_WEBHOOK_URL` | Required. Inbound text messages are POSTed here. |
+| `SECRET_KEY` | Required, min 16 characters. Signs webhook requests and gates the `/api/messages*` routes. |
+| `WEBHOOK_URL` | Required. Inbound text messages are POSTed here. |
 | `PORT` | HTTP port (default `3000`). |
 | `LOG_LEVEL` | Log verbosity: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (default `info`). |
-| `WWEB_SESSION_PATH` | Where the paired session is persisted (default `.wwebjs_auth`). |
-| `WWEB_CACHE_PATH` | Where the WhatsApp Web version cache is persisted (default `.wwebjs_cache`). |
-| `WHAPPR_WEBHOOK_INTERVAL` | Seconds to buffer events before POSTing as one batch (default `2`). `0` disables buffering. |
-| `WHAPPR_EVENTS` | Filters which events are sent to the webhook (default `*`). See "Event filtering" below. |
-| `WHAPPR_COMMANDS` | Comma-separated command names that trigger `cmd.invoked` instead of `msg.received` (default none). See "Commands" below. |
+| `SESSION_PATH` | Where the paired session is persisted (default `.wwebjs_auth`). |
+| `CACHE_PATH` | Where the WhatsApp Web version cache is persisted (default `.wwebjs_cache`). |
+| `WEBHOOK_INTERVAL` | Seconds to buffer events before POSTing as one batch (default `2`). `0` disables buffering. |
+| `EVENTS_REGISTRY` | Filters which events are sent to the webhook (default `*`). See "Event filtering" below. |
+| `COMMANDS_REGISTRY` | Comma-separated command names that trigger `cmd.invoked` instead of `msg.received` (default none). See "Commands" below. |
 
 ### API
 
@@ -107,7 +107,7 @@ curl -X POST http://localhost:3000/api/messages \
 
 - `GET /api/status` — no auth. `{ status, qr }` — see "Session state" below. Polled by the bundled
   UI at `/`.
-- `POST /api/logout` — `{ "secret": "<WHAPPR_SECRET>" }` → `202 { ok: true }`. `401` if the secret
+- `POST /api/logout` — `{ "secret": "<SECRET_KEY>" }` → `202 { ok: true }`. `401` if the secret
   doesn't match.
 
 #### Messages
@@ -159,27 +159,27 @@ shape with a status-derived code, e.g. `UNAUTHORIZED`, `BAD_REQUEST`, `NOT_FOUND
 
 ### Webhook events
 
-Delivered as a signed, batched JSON array (buffered per `WHAPPR_WEBHOOK_INTERVAL`, one delivery
+Delivered as a signed, batched JSON array (buffered per `WEBHOOK_INTERVAL`, one delivery
 attempt, no retries). Event types: `msg.received`, `msg.sent`, `msg.acked`, `msg.edited`,
 `msg.reacted`, `msg.revoked`, `cmd.invoked`.
 
 ### Event filtering
 
-`WHAPPR_EVENTS` takes a comma-separated list of entries — `*`, a bare type
+`EVENTS_REGISTRY` takes a comma-separated list of entries — `*`, a bare type
 (`msg.received`), or a type with conditions (`msg.received(fromMe=true)`). Type-specific entries
 take precedence over `*` for that type. A field name may use `.` to reach into a nested field or
 array index, should a future event carry one. Example:
 
 ```sh
-WHAPPR_EVENTS=msg.received(from=1555123456@c.us),*
+EVENTS_REGISTRY=msg.received(from=1555123456@c.us),*
 ```
 
 ### Commands
 
-`WHAPPR_COMMANDS` is a comma-separated allow-list of command names, e.g.:
+`COMMANDS_REGISTRY` is a comma-separated allow-list of command names, e.g.:
 
 ```sh
-WHAPPR_COMMANDS=start,help,subscribe
+COMMANDS_REGISTRY=start,help,subscribe
 ```
 
 An inbound message whose body starts with `/` followed by one of these names produces a
@@ -191,14 +191,14 @@ configured is left as plain `msg.received` — nothing is silently dropped. This
 convention, not a WhatsApp platform feature: whatsapp-web.js has no native concept of bot
 commands.
 
-There's no separate authorization mechanism — use `WHAPPR_EVENTS` to restrict which
+There's no separate authorization mechanism — use `EVENTS_REGISTRY` to restrict which
 commands (and from whom) actually reach the webhook. `args` is an array, so a field path can
 index into it with `.0`, `.1`, etc. — e.g. `cmd.invoked(args.0=daily)` matches a command whose
 first argument is `daily`:
 
 ```sh
-WHAPPR_EVENTS=cmd.invoked(command=subscribe),cmd.invoked(command=admin&author=1555123456@c.us)
-WHAPPR_EVENTS=cmd.invoked(args.0=daily)
+EVENTS_REGISTRY=cmd.invoked(command=subscribe),cmd.invoked(command=admin&author=1555123456@c.us)
+EVENTS_REGISTRY=cmd.invoked(args.0=daily)
 ```
 
 ## Development

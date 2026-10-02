@@ -141,8 +141,8 @@ export class WhatsappClient extends EventEmitter<WhatsappClientEventMap> {
     super();
 
     this.#client = new Client({
-      authStrategy: new LocalAuth({ dataPath: env.WWEB_SESSION_PATH }),
-      webVersionCache: { type: 'local', path: env.WWEB_CACHE_PATH },
+      authStrategy: new LocalAuth({ dataPath: env.SESSION_PATH }),
+      webVersionCache: { type: 'local', path: env.CACHE_PATH },
       puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] },
     });
 

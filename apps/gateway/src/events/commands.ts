@@ -1,7 +1,7 @@
 import type { Logger } from '../logging/logger.js';
 import type { MessagePayload } from '../whatsapp/client.js';
 
-const ENV_KEY = 'WHAPPR_COMMANDS';
+const ENV_KEY = 'COMMANDS_REGISTRY';
 const PREFIX = '/';
 const NAME_PATTERN = /^[^\s/]+$/;
 

@@ -17,22 +17,22 @@ with [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) 
 - **Simple, few dependencies** — a thin Hono API in front of whatsapp-web.js, no extra framework.
 - **No database** — messages pass straight through to your webhook and aren't stored anywhere.
 - **Signed end-to-end** — inbound webhooks and outbound API calls are both HMAC-signed.
-- **Fine-grained event filtering** — `WHAPPR_EVENTS` controls which events reach your webhook.
-- **Built-in bot commands** — `WHAPPR_COMMANDS` recognizes `/command` messages as commands.
+- **Fine-grained event filtering** — `EVENTS_REGISTRY` controls which events reach your webhook.
+- **Built-in bot commands** — `COMMANDS_REGISTRY` recognizes `/command` messages as commands.
 
 ## Install
 
 The gateway ships as a Docker image published to `ghcr.io/whappr/whappr-gateway` — tagged `latest`
-and per-release (e.g. `1.0.0`). Set at least `WHAPPR_SECRET` and `WHAPPR_WEBHOOK_URL`, then run it
+and per-release (e.g. `1.0.0`). Set at least `SECRET_KEY` and `WEBHOOK_URL`, then run it
 either way:
 
 ### Using `docker run`
 
 ```sh
 docker run -p 3000:3000 \
-  -e WHAPPR_SECRET=your-shared-secret \
-  -e WHAPPR_WEBHOOK_URL=https://example.com/webhook \
-  -v wweb-session:/whappr/apps/gateway/.wwebjs_auth \
+  -e SECRET_KEY=your-shared-secret \
+  -e WEBHOOK_URL=https://example.com/webhook \
+  -v whappr-session:/whappr/apps/gateway/.wwebjs_auth \
   ghcr.io/whappr/whappr-gateway:latest
 ```
 
@@ -44,30 +44,30 @@ services:
   gateway:
     image: ghcr.io/whappr/whappr-gateway:latest
     environment:
-      WHAPPR_SECRET: your-shared-secret
-      WHAPPR_WEBHOOK_URL: https://example.com/webhook
+      SECRET_KEY: your-shared-secret
+      WEBHOOK_URL: https://example.com/webhook
     ports:
       - "3000:3000"
     volumes:
-      - wweb-session:/whappr/apps/gateway/.wwebjs_auth
+      - whappr-session:/whappr/apps/gateway/.wwebjs_auth
     restart: unless-stopped
 
 volumes:
-  wweb-session:
+  whappr-session:
 ```
 
 ```sh
 docker compose up
 ```
 
-Either way, the `wweb-session` volume persists the paired WhatsApp session across restarts, so
+Either way, the `whappr-session` volume persists the paired WhatsApp session across restarts, so
 you don't have to re-scan the QR code every time.
 
 ## Usage
 
 Open `http://localhost:3000` and scan the QR code with WhatsApp on your phone
 (*Linked devices → Link a device*). Once paired, inbound text messages are POSTed to
-`WHAPPR_WEBHOOK_URL`, and you can send messages back through the API:
+`WEBHOOK_URL`, and you can send messages back through the API:
 
 ```sh
 SECRET=your-secret

@@ -13,9 +13,9 @@ const env = loadEnvVars();
 const logger = createRootLogger(env.LOG_LEVEL);
 
 const buffer = createWebhookBuffer({
-  secret: env.WHAPPR_SECRET,
-  webhookUrl: env.WHAPPR_WEBHOOK_URL,
-  webhookInterval: env.WHAPPR_WEBHOOK_INTERVAL,
+  secret: env.SECRET_KEY,
+  webhookUrl: env.WEBHOOK_URL,
+  webhookInterval: env.WEBHOOK_INTERVAL,
   logger,
 });
 
@@ -28,7 +28,7 @@ const session = createWhatsappSession(client, logger);
 forwardEventsToBuffer(session.client, buffer, rules, commands, logger);
 
 const app = createApp({
-  secret: env.WHAPPR_SECRET,
+  secret: env.SECRET_KEY,
   client: session.client,
   session,
   logger,

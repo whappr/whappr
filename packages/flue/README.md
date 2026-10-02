@@ -20,7 +20,7 @@ npm install @whappr/flue @flue/runtime hono
 import { createWhapprChannel } from '@whappr/flue';
 
 export const channel = createWhapprChannel({
-  secret: process.env.WHAPPR_SECRET!,
+  secret: process.env.SECRET_KEY!,
 
   // Path: /channels/whappr/webhook
   async events({ events }) {
@@ -42,8 +42,8 @@ app.route('/channels/whappr', channel.route());
 export default app;
 ```
 
-Set the gateway's `WHAPPR_WEBHOOK_URL` to `https://<your-app>/channels/whappr/webhook`, and
-`WHAPPR_SECRET` to the same value passed here.
+Set the gateway's `WEBHOOK_URL` to `https://<your-app>/channels/whappr/webhook`, and
+`SECRET_KEY` to the same value passed here.
 
 ### Options
 
@@ -51,7 +51,7 @@ Set the gateway's `WHAPPR_WEBHOOK_URL` to `https://<your-app>/channels/whappr/we
 
 | Option | Description |
 |---|---|
-| `secret` | Required. Shared secret configured on the gateway as `WHAPPR_SECRET`. Used to verify the webhook signature. |
+| `secret` | Required. Shared secret configured on the gateway as `SECRET_KEY`. Used to verify the webhook signature. |
 | `events` | Required. Callback invoked with each verified batch of webhook events: `({ c, events }) => void \| JsonValue \| Response`. |
 | `bodyLimit` | Maximum accepted request body size in bytes (default `1_048_576`, i.e. 1 MiB). |
 | `maxSignatureAgeSeconds` | Maximum age of a signed request before it's rejected as stale (default `300`). |
@@ -80,7 +80,7 @@ Every failure extends `WhapprChannelError`, so one `catch` handles them all — 
 import { WhapprChannelError, WhapprInvalidInputError } from '@whappr/flue';
 
 try {
-  const channel = createWhapprChannel({ secret: process.env.WHAPPR_SECRET!, events });
+  const channel = createWhapprChannel({ secret: process.env.SECRET_KEY!, events });
 } catch (error) {
   if (error instanceof WhapprInvalidInputError) {
     // error.field tells you which option was invalid
@@ -101,7 +101,7 @@ import { dispatch } from '@flue/runtime';
 import { Assistant } from '../agents/assistant.ts';
 
 export const channel = createWhapprChannel({
-  secret: process.env.WHAPPR_SECRET!,
+  secret: process.env.SECRET_KEY!,
   async events({ events }) {
     for (const event of events) {
       const id = channel.instanceId({ chatId: event.data.from });

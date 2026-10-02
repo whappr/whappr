@@ -5,7 +5,7 @@ import { createTransport } from './transport.js';
 export interface WhapprClientOptions {
   /** Base URL of the Gateway, e.g. "https://gateway.example.com". */
   baseUrl: string;
-  /** Shared secret configured on the Gateway as `WHAPPR_SECRET`. */
+  /** Shared secret configured on the Gateway as `SECRET_KEY`. */
   secret: string;
   /** Override the fetch implementation (defaults to the global `fetch`). */
   fetch?: typeof fetch;

@@ -32,7 +32,7 @@ export interface WhapprEventsHandlerInput<E extends Env = Env> {
 
 /** Ingress configuration for one Whappr gateway. */
 export interface WhapprChannelOptions<E extends Env = Env> {
-  /** Shared secret. Must match the gateway's `WHAPPR_SECRET`. */
+  /** Shared secret. Must match the gateway's `SECRET_KEY`. */
   secret: string;
   /** Maximum request-body size in bytes. Defaults to 1 MiB. */
   bodyLimit?: number;

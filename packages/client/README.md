@@ -20,7 +20,7 @@ import { createWhapprClient } from '@whappr/client';
 
 const client = createWhapprClient({
   baseUrl: 'https://gateway.example.com',
-  secret: process.env.WHAPPR_SECRET!,
+  secret: process.env.SECRET_KEY!,
 });
 
 const status = await client.session.getStatus();
@@ -37,14 +37,14 @@ if (status.status === 'READY') {
 | Option | Description |
 |---|---|
 | `baseUrl` | Required. Base URL of the Gateway, e.g. `"https://gateway.example.com"`. |
-| `secret` | Required. Shared secret configured on the Gateway as `WHAPPR_SECRET`. Used to HMAC-sign requests (e.g. `messages.*`) and sent directly on others (e.g. `session.logout()`). |
+| `secret` | Required. Shared secret configured on the Gateway as `SECRET_KEY`. Used to HMAC-sign requests (e.g. `messages.*`) and sent directly on others (e.g. `session.logout()`). |
 | `fetch` | Override the `fetch` implementation used for requests — useful for testing or environments without a global `fetch` (default: global `fetch`). |
 | `timeoutMs` | Per-request timeout in milliseconds. Requests that exceed this throw `WhapprTimeoutError` (default `10000`). |
 
 ```ts
 const client = createWhapprClient({
   baseUrl: 'https://gateway.example.com',
-  secret: process.env.WHAPPR_SECRET!,
+  secret: process.env.SECRET_KEY!,
   timeoutMs: 5_000,
   fetch: customFetch, // e.g. undici's fetch, or a mock for tests
 });
