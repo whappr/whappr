@@ -17,8 +17,8 @@ with [`@whappr/flue`](https://github.com/whappr/whappr/tree/main/packages/flue) 
 - **Simple, few dependencies** — a thin Hono API in front of whatsapp-web.js, no extra framework.
 - **No database** — messages pass straight through to your webhook and aren't stored anywhere.
 - **Signed end-to-end** — inbound webhooks and outbound API calls are both HMAC-signed.
-- **Fine-grained event filtering** — `EVENTS_REGISTRY` controls which events reach your webhook.
-- **Built-in bot commands** — `COMMANDS_REGISTRY` recognizes `/command` messages as commands.
+- **Fine-grained event filtering** — `EVENT_FILTER` controls which events reach your webhook.
+- **Built-in bot commands** — `COMMAND_REGISTRY` recognizes `/command` messages as commands.
 
 ## Install
 
@@ -94,8 +94,8 @@ curl -X POST http://localhost:3000/api/messages \
 | `SESSION_PATH` | Where the paired session is persisted (default `.wwebjs_auth`). |
 | `CACHE_PATH` | Where the WhatsApp Web version cache is persisted (default `.wwebjs_cache`). |
 | `WEBHOOK_INTERVAL` | Seconds to buffer events before POSTing as one batch (default `2`). `0` disables buffering. |
-| `EVENTS_REGISTRY` | Filters which events are sent to the webhook (default `*`). See "Event filtering" below. |
-| `COMMANDS_REGISTRY` | Comma-separated command names that trigger `cmd.invoked` instead of `msg.received` (default none). See "Commands" below. |
+| `EVENT_FILTER` | Filters which events are sent to the webhook (default `*`). See "Event filtering" below. |
+| `COMMAND_REGISTRY` | Comma-separated command names that trigger `cmd.invoked` instead of `msg.received` (default none). See "Commands" below. |
 
 ### API
 
@@ -165,21 +165,21 @@ attempt, no retries). Event types: `msg.received`, `msg.sent`, `msg.acked`, `msg
 
 ### Event filtering
 
-`EVENTS_REGISTRY` takes a comma-separated list of entries — `*`, a bare type
+`EVENT_FILTER` takes a comma-separated list of entries — `*`, a bare type
 (`msg.received`), or a type with conditions (`msg.received(fromMe=true)`). Type-specific entries
 take precedence over `*` for that type. A field name may use `.` to reach into a nested field or
 array index, should a future event carry one. Example:
 
 ```sh
-EVENTS_REGISTRY=msg.received(from=1555123456@c.us),*
+EVENT_FILTER=msg.received(from=1555123456@c.us),*
 ```
 
 ### Commands
 
-`COMMANDS_REGISTRY` is a comma-separated allow-list of command names, e.g.:
+`COMMAND_REGISTRY` is a comma-separated allow-list of command names, e.g.:
 
 ```sh
-COMMANDS_REGISTRY=start,help,subscribe
+COMMAND_REGISTRY=start,help,subscribe
 ```
 
 An inbound message whose body starts with `/` followed by one of these names produces a
@@ -191,14 +191,14 @@ configured is left as plain `msg.received` — nothing is silently dropped. This
 convention, not a WhatsApp platform feature: whatsapp-web.js has no native concept of bot
 commands.
 
-There's no separate authorization mechanism — use `EVENTS_REGISTRY` to restrict which
+There's no separate authorization mechanism — use `EVENT_FILTER` to restrict which
 commands (and from whom) actually reach the webhook. `args` is an array, so a field path can
 index into it with `.0`, `.1`, etc. — e.g. `cmd.invoked(args.0=daily)` matches a command whose
 first argument is `daily`:
 
 ```sh
-EVENTS_REGISTRY=cmd.invoked(command=subscribe),cmd.invoked(command=admin&author=1555123456@c.us)
-EVENTS_REGISTRY=cmd.invoked(args.0=daily)
+EVENT_FILTER=cmd.invoked(command=subscribe),cmd.invoked(command=admin&author=1555123456@c.us)
+EVENT_FILTER=cmd.invoked(args.0=daily)
 ```
 
 ## Development

@@ -1,7 +1,7 @@
 import type { Logger } from '../logging/logger.js';
 import type { AnyWhapprEvent } from './types.js';
 
-const ENV_KEY = 'EVENTS_REGISTRY';
+const ENV_KEY = 'EVENT_FILTER';
 const WILDCARD = '*';
 const NUMBER_PATTERN = /^-?\d+(\.\d+)?$/;
 
@@ -72,7 +72,7 @@ function parseFilterRule(raw: string): FilterRule {
   const type = (openIndex === -1 ? raw : raw.slice(0, openIndex)).trim();
 
   if (type === '') {
-    throw new Error('empty type name — check for a stray "," in EVENTS_REGISTRY');
+    throw new Error('empty type name — check for a stray "," in EVENT_FILTER');
   }
   if (type.includes(')')) {
     throw new Error(`stray ")" with no matching "(" in "${type}"`);
