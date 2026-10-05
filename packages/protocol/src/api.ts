@@ -25,6 +25,28 @@ export interface SessionState {
   error?: string;
 }
 
+// --- Health ---
+
+/** The outcome of a webhook POST. */
+export interface WebhookDelivery {
+  /** When the attempt finished, ISO 8601. */
+  at: string;
+  /** `true` when the webhook answered with a 2xx status. */
+  ok: boolean;
+  /** The webhook's HTTP status. Absent when no response arrived (timeout, network error). */
+  status?: number;
+}
+
+/** `GET /health`. Unauthenticated, so it carries no URLs or error details. */
+export interface HealthResponse {
+  /** Always `true` while the server responds; webhook failures don't change it. */
+  ok: true;
+  /** The gateway's version. */
+  version: string;
+  /** The most recent webhook delivery since the gateway started, or `null` before the first. */
+  webhook: WebhookDelivery | null;
+}
+
 // --- Messages ---
 
 /**

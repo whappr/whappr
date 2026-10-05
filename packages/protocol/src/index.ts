@@ -3,6 +3,7 @@ export type {
   EditMessageRequest,
   ErrorCode,
   ErrorResponse,
+  HealthResponse,
   MediaInput,
   MessageResponse,
   SendMediaRequest,
@@ -12,6 +13,7 @@ export type {
   SessionState,
   SessionStatus,
   SetReactionRequest,
+  WebhookDelivery,
 } from './api.js';
 export {
   type AnyWhapprEvent,

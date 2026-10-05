@@ -317,6 +317,22 @@
         font-size: 0.85rem;
         font-variant-numeric: tabular-nums;
       }
+      .webhook[data-tone]::before {
+        content: '';
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        margin-right: 7px;
+        border-radius: 50%;
+        background: var(--accent-text);
+        vertical-align: 1px;
+      }
+      .webhook[data-tone='bad'] {
+        color: var(--bad);
+      }
+      .webhook[data-tone='bad']::before {
+        background: var(--bad);
+      }
       .confirm {
         width: 100%;
         display: grid;
@@ -573,7 +589,7 @@
             <span class="account-phone" id="account-phone"></span>
           </span>
         </div>
-        <p>Incoming messages are forwarded to your webhook.</p>
+        <p class="webhook" id="webhook-status">Incoming messages are forwarded to your webhook.</p>
         <button class="button ghost" id="logout-button" type="button">Log out</button>
         <div class="confirm" id="logout-confirm" hidden>
           <p>This unlinks the gateway from WhatsApp. You'll need to scan a new QR code to use it again.</p>
@@ -598,7 +614,7 @@
     </main>
 
     <footer>
-      <span>Whappr · Not affiliated with WhatsApp or Meta</span>
+      <span>Whappr<span id="version"></span> · Not affiliated with WhatsApp or Meta</span>
       <nav aria-label="Project links">
         <a href="https://github.com/whappr/whappr/tree/main/apps/gateway#readme" target="_blank" rel="noopener">Docs</a>
         <a href="https://github.com/whappr/whappr" target="_blank" rel="noopener">GitHub</a>
@@ -643,6 +659,8 @@
       const freshnessFill = $('freshness-fill');
       const progressTitle = $('progress-title');
       const progressText = $('progress-text');
+      const webhookStatus = $('webhook-status');
+      const versionLabel = $('version');
       const accountBox = $('account');
       const accountInitials = $('account-initials');
       const accountGlyph = $('account-glyph');
@@ -683,7 +701,7 @@
         if (name === currentView) return;
         const isFirstRender = currentView === null;
         for (const [key, el] of Object.entries(views)) el.hidden = key !== name;
-        if (currentView === 'ready') resetLogout();
+        if (currentView === 'ready') closeLogoutConfirm();
         currentView = name;
         // Moves screen readers and keyboard users to the new content; skipped on load so the
         // page doesn't open scrolled or focused mid-way.
@@ -737,6 +755,44 @@
         problemText.textContent = text;
         setPill(pill);
         showView('problem');
+      }
+
+      // Unauthenticated and best-effort: older gateways answer `{ ok: true }` only, and a failure
+      // here must not affect the session view.
+      async function refreshHealth() {
+        try {
+          const response = await fetch('/health');
+          if (!response.ok) return;
+          const health = await response.json();
+          if (health.version) versionLabel.textContent = ` v${health.version}`;
+          if (health.webhook !== undefined) renderWebhook(health.webhook);
+        } catch {}
+      }
+
+      function renderWebhook(delivery) {
+        if (!delivery) {
+          webhookStatus.textContent = 'Incoming messages will be forwarded to your webhook.';
+          delete webhookStatus.dataset.tone;
+          return;
+        }
+        const ago = timeAgo(delivery.at);
+        if (delivery.ok) {
+          webhookStatus.textContent = `Webhook delivered ${ago}`;
+          webhookStatus.dataset.tone = 'good';
+        } else {
+          const reason = delivery.status ? `HTTP ${delivery.status}` : 'no response';
+          webhookStatus.textContent = `Webhook failing (${reason}) ${ago}. Check WEBHOOK_URL and the gateway logs.`;
+          webhookStatus.dataset.tone = 'bad';
+        }
+      }
+
+      // Clamped at zero: the browser's clock may run slightly behind the gateway's.
+      function timeAgo(iso) {
+        const seconds = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000));
+        if (seconds < 10) return 'just now';
+        if (seconds < 60) return `${seconds} s ago`;
+        if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+        return `${Math.floor(seconds / 3600)} h ago`;
       }
 
       // Older gateways don't send `account`; the card stays hidden then.
@@ -830,6 +886,7 @@
           const response = await api('/api/session');
           if (response?.ok) render(await response.json());
           else if (response) throw new Error(`HTTP ${response.status}`);
+          if (lastStatus === 'ready') void refreshHealth();
         } catch (error) {
           console.error('Failed to fetch session state', error);
           lastStatus = null;
@@ -840,7 +897,7 @@
         }
       }
 
-      function resetLogout() {
+      function closeLogoutConfirm() {
         logoutConfirm.hidden = true;
         logoutButton.hidden = false;
         logoutError.textContent = '';
@@ -882,7 +939,7 @@
       });
 
       $('logout-cancel').addEventListener('click', () => {
-        resetLogout();
+        closeLogoutConfirm();
         logoutButton.focus();
       });
 
@@ -909,6 +966,7 @@
 
       setSecret(getSecret());
       poll();
+      void refreshHealth();
     </script>
   </body>
 </html>

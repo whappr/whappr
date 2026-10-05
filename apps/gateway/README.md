@@ -100,7 +100,10 @@ Request and response bodies, and every webhook event, are typed in
 
 ### Health
 
-- `GET /health` — no auth. `{ ok: true }`.
+- `GET /health` — no auth. `{ ok: true, version, webhook }`. `webhook` is the most recent delivery since startup,
+  `{ at, ok, status? }` (`status` is absent when no response arrived), or `null` before the first. It carries
+  no URL or error details, and `ok` stays `true` when deliveries fail, so container health checks don't
+  restart the gateway over a broken webhook receiver.
 
 Every `/api/*` route requires `Authorization: Bearer <SECRET_KEY>`.
 

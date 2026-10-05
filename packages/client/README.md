@@ -80,7 +80,14 @@ the [wire contract](https://github.com/whappr/whappr/tree/main/packages/protocol
 
 ### Health
 
-**`client.health()`** — Unauthenticated liveness check. Resolves if the gateway is up, throws otherwise.
+**`client.health()`** — Unauthenticated liveness check. Resolves with `{ ok, version, webhook }` if the gateway is up,
+throws otherwise. `webhook` is the most recent delivery since the gateway started (`{ at, ok, status? }`), or
+`null` before the first, so you can tell whether your receiver is getting events:
+
+```ts
+const { version, webhook } = await client.health();
+if (webhook && !webhook.ok) console.warn(`webhook failing: ${webhook.status ?? 'no response'}`);
+```
 
 ### Session
 

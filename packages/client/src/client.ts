@@ -1,3 +1,4 @@
+import type { HealthResponse } from '@whappr/protocol';
 import { type ChatsApi, createChatsApi } from './namespaces/chats.js';
 import { createMessagesApi, type MessagesApi } from './namespaces/messages.js';
 import { createSessionApi, type SessionApi } from './namespaces/session.js';
@@ -15,8 +16,7 @@ export interface WhapprClientOptions {
 }
 
 export interface WhapprClient {
-  /** GET /health — unauthenticated liveness check. Resolves if healthy, throws otherwise. */
-  health(): Promise<void>;
+  health(): Promise<HealthResponse>;
   readonly session: SessionApi;
   readonly messages: MessagesApi;
   readonly chats: ChatsApi;
@@ -33,8 +33,8 @@ export function createWhapprClient(options: WhapprClientOptions): WhapprClient {
   });
 
   return {
-    async health() {
-      await transport.request({ method: 'GET', path: '/health' });
+    health() {
+      return transport.request<HealthResponse>({ method: 'GET', path: '/health' });
     },
     session: createSessionApi(transport),
     messages: createMessagesApi(transport),

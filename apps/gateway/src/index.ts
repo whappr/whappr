@@ -21,7 +21,13 @@ client.on('event', (event) => {
   if (env.WEBHOOK_EVENTS.has(event.type)) dispatcher.send(event);
 });
 
-const app = createApp({ secret: env.SECRET_KEY, mediaMaxBytes, client, logger });
+const app = createApp({
+  secret: env.SECRET_KEY,
+  mediaMaxBytes,
+  client,
+  webhook: dispatcher,
+  logger,
+});
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   logger.info({ port: info.port }, 'whappr listening');

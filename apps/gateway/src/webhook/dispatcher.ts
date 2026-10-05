@@ -1,6 +1,7 @@
 import {
   type AnyWhapprEvent,
   signWebhook,
+  type WebhookDelivery,
   type WebhookPayload,
   WHAPPR_SIGNATURE_HEADER,
   WHAPPR_TIMESTAMP_HEADER,
@@ -14,6 +15,8 @@ export interface WebhookDispatcher {
   send(event: AnyWhapprEvent): void;
   /** Resolves once every event sent so far has been delivered (or has failed). */
   drain(): Promise<void>;
+  /** The most recent delivery attempt, or `null` before the first. */
+  last(): WebhookDelivery | null;
 }
 
 export function createWebhookDispatcher(opts: {
@@ -23,6 +26,7 @@ export function createWebhookDispatcher(opts: {
 }): WebhookDispatcher {
   const { webhookUrl, secret, logger } = opts;
   let queue: Promise<void> = Promise.resolve();
+  let last: WebhookDelivery | null = null;
 
   // Never rejects, so one failed delivery can't stall the queue.
   async function post(event: AnyWhapprEvent): Promise<void> {
@@ -39,6 +43,7 @@ export function createWebhookDispatcher(opts: {
         body: rawBody,
         signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
       });
+      last = { at: new Date().toISOString(), ok: response.ok, status: response.status };
 
       if (!response.ok) {
         logger.error(
@@ -47,6 +52,7 @@ export function createWebhookDispatcher(opts: {
         );
       }
     } catch (error) {
+      last = { at: new Date().toISOString(), ok: false };
       logger.error({ error, eventId: event.id }, 'webhook delivery failed');
     }
   }
@@ -57,6 +63,9 @@ export function createWebhookDispatcher(opts: {
     },
     drain() {
       return queue;
+    },
+    last() {
+      return last;
     },
   };
 }
