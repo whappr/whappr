@@ -1,6 +1,6 @@
 {
   "name": "@whappr/gateway",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "private": true,
   "description": "Self-hosted WhatsApp gateway for AI agents.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
@@ -14,7 +14,7 @@
   "dependencies": {
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
-    "@whappr/protocol": "^0.0.0",
+    "@whappr/protocol": "^0.1.0",
     "hono": "^4.13.7",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4",

@@ -1,6 +1,6 @@
 {
   "name": "@whappr/flue",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "Flue channel for the Whappr WhatsApp gateway.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "build": "rimraf dist && tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@whappr/protocol": "^0.0.0"
+    "@whappr/protocol": "^0.1.0"
   },
   "peerDependencies": {
     "@flue/runtime": "^2.0.0",

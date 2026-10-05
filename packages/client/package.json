@@ -1,6 +1,6 @@
 {
   "name": "@whappr/client",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "Typed client for the Whappr WhatsApp gateway.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
   "license": "MIT",
@@ -20,6 +20,6 @@
     "build": "rimraf dist && tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "@whappr/protocol": "^0.0.0"
+    "@whappr/protocol": "^0.1.0"
   }
 }
