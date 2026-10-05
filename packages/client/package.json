@@ -1,31 +1,25 @@
 {
   "name": "@whappr/client",
   "version": "0.0.4",
-  "description": "Client for interacting with the Whappr WhatsApp gateway.",
+  "description": "Typed client for the Whappr WhatsApp gateway.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
   "license": "MIT",
   "files": [
     "dist"
   ],
   "type": "module",
-  "main": "./dist/cjs/index.js",
-  "types": "./dist/types/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/types/index.d.ts",
-        "default": "./dist/esm/index.js"
-      },
-      "require": {
-        "types": "./dist/types/index.d.ts",
-        "default": "./dist/cjs/index.js"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {
-    "build": "rimraf dist && concurrently \"npm:build:*\" && echo '{\"type\": \"commonjs\"}' > ./dist/cjs/package.json",
-    "build:esm": "tsc -p tsconfig.build.json --outDir ./dist/esm/",
-    "build:cjs": "tsc -p tsconfig.build.json --outDir ./dist/cjs/ --module commonjs --moduleResolution bundler --verbatimModuleSyntax false",
-    "build:types": "tsc -p tsconfig.build.json --outDir ./dist/types/ --declaration --emitDeclarationOnly"
+    "build": "rimraf dist && tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@whappr/protocol": "^0.0.0"
   }
 }

@@ -1,3 +1,5 @@
+import type { ErrorCode } from '@whappr/protocol';
+
 /**
  * Base class for every error this client throws. The client talks HTTP today, but
  * callers should only ever need `instanceof WhapprClientError` (or one of its
@@ -19,18 +21,14 @@ export class WhapprTimeoutError extends WhapprClientError {}
 
 /**
  * The Gateway responded with a non-2xx status. `code` is whatever the error envelope's
- * `error.code` field held, if any — either a WhatsApp-domain code (e.g. `NOT_READY`,
- * `MESSAGE_NOT_FOUND`; see apps/gateway/src/whatsapp/errors.ts) or a generic HTTP-layer
- * code derived from the status text (e.g. `BAD_REQUEST`, `UNAUTHORIZED`; see
- * apps/gateway/src/http/errors.ts). Not an exhaustive/closed set, so it's a plain
- * `string` rather than a literal union — prefer `status` or `instanceof` checks for
- * anything you need to branch on reliably.
+ * `error.code` field held, if any — a domain code (e.g. `NOT_READY`, `MESSAGE_NOT_FOUND`)
+ * or one derived from the HTTP status text (e.g. `BAD_REQUEST`). See `ErrorCode`.
  */
 export class WhapprApiError extends WhapprClientError {
   readonly status: number;
-  readonly code?: string;
+  readonly code?: ErrorCode;
 
-  constructor(message: string, options: { status: number; code?: string; cause?: unknown }) {
+  constructor(message: string, options: { status: number; code?: ErrorCode; cause?: unknown }) {
     super(message, { cause: options.cause });
     this.status = options.status;
     this.code = options.code;

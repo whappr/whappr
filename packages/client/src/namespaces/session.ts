@@ -1,20 +1,20 @@
+import type { SessionState } from '@whappr/protocol';
 import type { Transport } from '../transport.js';
-import type { SessionState } from '../types.js';
 
 export interface SessionApi {
-  /** GET /api/status — unauthenticated by design. */
+  /** GET /api/session — pairing status, the QR code while awaiting a scan, and the paired account once ready. */
   getStatus(): Promise<SessionState>;
-  /** POST /api/logout — the configured secret is sent automatically. */
+  /** POST /api/session/logout — unpairs the account; the gateway then shows a new QR code. */
   logout(): Promise<void>;
 }
 
-export function createSessionApi(transport: Transport, secret: string): SessionApi {
+export function createSessionApi(transport: Transport): SessionApi {
   return {
     getStatus() {
-      return transport.request<SessionState>({ method: 'GET', path: '/api/status' });
+      return transport.request<SessionState>({ method: 'GET', path: '/api/session' });
     },
     async logout() {
-      await transport.request({ method: 'POST', path: '/api/logout', body: { secret } });
+      await transport.request({ method: 'POST', path: '/api/session/logout' });
     },
   };
 }

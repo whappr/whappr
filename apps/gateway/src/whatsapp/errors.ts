@@ -1,14 +1,9 @@
-export type WhatsappErrorCode =
-  | 'NOT_READY'
-  | 'MESSAGE_NOT_FOUND'
-  | 'EDIT_NOT_ALLOWED'
-  | 'NOT_AUTHENTICATED'
-  | 'OPERATION_FAILED';
+import type { DomainErrorCode } from '@whappr/protocol';
 
 export class WhatsappError extends Error {
-  readonly code?: WhatsappErrorCode;
+  readonly code: DomainErrorCode;
 
-  constructor(message: string, code?: WhatsappErrorCode, cause?: unknown) {
+  constructor(message: string, code: DomainErrorCode, cause?: unknown) {
     super(message, { cause });
     this.name = 'WhatsappError';
     this.code = code;

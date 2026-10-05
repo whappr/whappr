@@ -4,7 +4,6 @@ import {
   WhapprParseError,
   WhapprTimeoutError,
 } from './errors.js';
-import { signPayload, WHAPPR_SIGNATURE_HEADER, WHAPPR_TIMESTAMP_HEADER } from './signature.js';
 
 export interface TransportConfig {
   baseUrl: string;
@@ -17,7 +16,10 @@ export interface RequestOptions {
   method: string;
   path: string;
   body?: unknown;
-  sign?: boolean;
+  /** `blob` returns the raw response body instead of parsing it as JSON. Defaults to `json`. */
+  responseType?: 'json' | 'blob';
+  /** Overrides the client's `timeoutMs` for this request. */
+  timeoutMs?: number;
 }
 
 interface ParsedErrorEnvelope {
@@ -64,29 +66,17 @@ export interface Transport {
 
 export function createTransport(config: TransportConfig): Transport {
   async function request<T>(options: RequestOptions): Promise<T> {
-    const rawBody = options.body === undefined ? '' : JSON.stringify(options.body);
     const url = new URL(options.path, config.baseUrl).toString();
 
-    const headers: Record<string, string> = {};
+    const timeoutMs = options.timeoutMs ?? config.timeoutMs;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const headers: Record<string, string> = { Authorization: `Bearer ${config.secret}` };
+    const init: RequestInit = { method: options.method, headers, signal: controller.signal };
     if (options.body !== undefined) {
       headers['Content-Type'] = 'application/json';
-    }
-    if (options.sign) {
-      const { timestamp, signature } = await signPayload(config.secret, rawBody);
-      headers[WHAPPR_TIMESTAMP_HEADER] = timestamp;
-      headers[WHAPPR_SIGNATURE_HEADER] = signature;
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), config.timeoutMs);
-
-    const init: RequestInit = {
-      method: options.method,
-      headers,
-      signal: controller.signal,
-    };
-    if (options.body !== undefined) {
-      init.body = rawBody;
+      init.body = JSON.stringify(options.body);
     }
 
     let response: Response;
@@ -94,12 +84,9 @@ export function createTransport(config: TransportConfig): Transport {
       response = await config.fetch(url, init);
     } catch (cause) {
       if (controller.signal.aborted) {
-        throw new WhapprTimeoutError(
-          `Request to ${options.path} timed out after ${config.timeoutMs}ms`,
-          {
-            cause,
-          },
-        );
+        throw new WhapprTimeoutError(`Request to ${options.path} timed out after ${timeoutMs}ms`, {
+          cause,
+        });
       }
       throw new WhapprNetworkError(`Request to ${options.path} failed`, { cause });
     } finally {
@@ -108,6 +95,14 @@ export function createTransport(config: TransportConfig): Transport {
 
     if (!response.ok) {
       throw await toApiError(options.path, response);
+    }
+
+    if (options.responseType === 'blob') {
+      try {
+        return (await response.blob()) as T;
+      } catch (cause) {
+        throw new WhapprNetworkError(`Reading the response from ${options.path} failed`, { cause });
+      }
     }
 
     if (response.status === 204) {

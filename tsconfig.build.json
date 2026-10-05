@@ -4,8 +4,9 @@
     "declaration": false,
     "sourceMap": false,
     "incremental": false,
-    "allowImportingTsExtensions": false,
-    "noEmit": false
+    "noEmit": false,
+    "customConditions": [],
+    "allowImportingTsExtensions": false
   },
   "exclude": ["node_modules", "dist"]
 }

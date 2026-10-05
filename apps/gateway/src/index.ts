@@ -1,54 +1,38 @@
 import { serve } from '@hono/node-server';
-import { loadEnvVars } from './config/env.js';
-import { loadCommandNames } from './events/commands.js';
-import { loadFilterRules } from './events/filter.js';
-import { forwardEventsToBuffer } from './events/forwarding.js';
+import pino from 'pino';
+import { loadEnv } from './config/env.js';
 import { createApp } from './http/app.js';
-import { createRootLogger } from './logging/logger.js';
-import { createWebhookBuffer } from './webhook/buffer.js';
-import { createWhatsappClient } from './whatsapp/client.js';
-import { createWhatsappSession } from './whatsapp/session.js';
+import { createWebhookDispatcher } from './webhook/dispatcher.js';
+import { WhatsappClient } from './whatsapp/client.js';
 
-const env = loadEnvVars();
-const logger = createRootLogger(env.LOG_LEVEL);
+const env = loadEnv();
+const logger = pino({ level: env.LOG_LEVEL, errorKey: 'error' });
+const mediaMaxBytes = env.MEDIA_MAX_SIZE * 1024 * 1024;
 
-const buffer = createWebhookBuffer({
-  secret: env.SECRET_KEY,
+const dispatcher = createWebhookDispatcher({
   webhookUrl: env.WEBHOOK_URL,
-  webhookInterval: env.WEBHOOK_INTERVAL,
-  logger,
-});
-
-const rules = loadFilterRules(logger);
-const commands = loadCommandNames(logger);
-
-const client = createWhatsappClient(env);
-const session = createWhatsappSession(client, logger);
-
-forwardEventsToBuffer(session.client, buffer, rules, commands, logger);
-
-const app = createApp({
   secret: env.SECRET_KEY,
-  client: session.client,
-  session,
   logger,
 });
+
+const client = new WhatsappClient({ dataDir: env.DATA_DIR, mediaMaxBytes, logger });
+
+client.on('event', (event) => {
+  if (env.WEBHOOK_EVENTS.has(event.type)) dispatcher.send(event);
+});
+
+const app = createApp({ secret: env.SECRET_KEY, mediaMaxBytes, client, logger });
 
 serve({ fetch: app.fetch, port: env.PORT }, (info) => {
   logger.info({ port: info.port }, 'whappr listening');
 });
 
-void session.initialize();
+void client.start();
 
 async function shutdown(): Promise<void> {
   logger.info('shutting down');
-  await Promise.allSettled([
-    session.destroy().catch((error) => logger.error({ error }, 'error during shutdown')),
-    buffer.flush(),
-  ]);
-  // Catches an event session.destroy() itself emitted (e.g. a trailing msg.acked)
-  // while the flush above was already mid-snapshot.
-  await buffer.flush();
+  await client.stop().catch((error) => logger.error({ error }, 'error during shutdown'));
+  await dispatcher.drain();
   process.exit(0);
 }
 

@@ -2,18 +2,19 @@
   "name": "@whappr/gateway",
   "version": "0.0.5",
   "private": true,
-  "description": "Lightweight WhatsApp gateway with a REST API. Built on whatsapp-web.js, ships as a Docker image.",
+  "description": "Self-hosted WhatsApp gateway for AI agents.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file=.env src/index.ts",
+    "dev": "tsx watch --conditions=@whappr/source --env-file=.env src/index.ts",
     "build": "rimraf dist && tsc -p tsconfig.build.json",
     "start": "node dist/index.js"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
+    "@whappr/protocol": "^0.0.0",
     "hono": "^4.13.7",
     "pino": "^10.3.1",
     "qrcode": "^1.5.4",

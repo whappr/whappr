@@ -4,8 +4,7 @@
 **/.env
 **/.env.*
 !apps/gateway/.env.dist
-**/.wwebjs_auth
-**/.wwebjs_cache
+**/data
 **/*.log
 .changeset
 .github

@@ -1,42 +1,62 @@
-import type { AnyWhapprEvent } from '../events/types.js';
-import type { Logger } from '../logging/logger.js';
 import {
-  signPayload,
+  type AnyWhapprEvent,
+  signWebhook,
+  type WebhookPayload,
   WHAPPR_SIGNATURE_HEADER,
   WHAPPR_TIMESTAMP_HEADER,
-} from '../security/signature.js';
+} from '@whappr/protocol';
+import type { Logger } from 'pino';
 
 const WEBHOOK_TIMEOUT_MS = 5000;
 
-export async function dispatchEvents(
-  webhookUrl: string,
-  secret: string,
-  events: AnyWhapprEvent[],
-  logger: Logger,
-): Promise<void> {
-  const rawBody = JSON.stringify(events);
-  const { timestamp, signature } = signPayload(secret, rawBody);
-  const eventIds = events.map((event) => event.id).join(', ');
+export interface WebhookDispatcher {
+  /** POSTs `event` once every event sent before it has been delivered (or has failed). */
+  send(event: AnyWhapprEvent): void;
+  /** Resolves once every event sent so far has been delivered (or has failed). */
+  drain(): Promise<void>;
+}
 
-  try {
-    const response = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        [WHAPPR_TIMESTAMP_HEADER]: timestamp,
-        [WHAPPR_SIGNATURE_HEADER]: signature,
-      },
-      body: rawBody,
-      signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
-    });
+export function createWebhookDispatcher(opts: {
+  webhookUrl: string;
+  secret: string;
+  logger: Logger;
+}): WebhookDispatcher {
+  const { webhookUrl, secret, logger } = opts;
+  let queue: Promise<void> = Promise.resolve();
 
-    if (!response.ok) {
-      logger.error(
-        { status: response.status, statusText: response.statusText, eventIds },
-        'webhook delivery failed',
-      );
+  // Never rejects, so one failed delivery can't stall the queue.
+  async function post(event: AnyWhapprEvent): Promise<void> {
+    try {
+      const rawBody = JSON.stringify(event satisfies WebhookPayload);
+      const { timestamp, signature } = await signWebhook(secret, rawBody);
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          [WHAPPR_TIMESTAMP_HEADER]: timestamp,
+          [WHAPPR_SIGNATURE_HEADER]: signature,
+        },
+        body: rawBody,
+        signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+      });
+
+      if (!response.ok) {
+        logger.error(
+          { status: response.status, statusText: response.statusText, eventId: event.id },
+          'webhook delivery failed',
+        );
+      }
+    } catch (error) {
+      logger.error({ error, eventId: event.id }, 'webhook delivery failed');
     }
-  } catch (error) {
-    logger.error({ error, eventIds }, 'webhook delivery failed');
   }
+
+  return {
+    send(event) {
+      queue = queue.then(() => post(event));
+    },
+    drain() {
+      return queue;
+    },
+  };
 }

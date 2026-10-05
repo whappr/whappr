@@ -5,7 +5,13 @@
 [![npm downloads](https://img.shields.io/npm/dy/@whappr/flue?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@whappr/flue)
 [![Last commit](https://img.shields.io/github/last-commit/whappr/whappr/main?style=for-the-badge&logo=github&logoColor=white&color=181717)](https://github.com/whappr/whappr/commits/main)
 
-Official [Whappr](https://github.com/whappr/whappr) channel for [Flue](https://flueframework.com). Web API-compatible, deployable on edge runtimes.
+Flue channel for the Whappr WhatsApp gateway.
+
+Connects your [Flue](https://flueframework.com) agents to WhatsApp. It verifies the gateway's signed
+webhooks and hands you each event to dispatch to your agents. Built on Web APIs only, so it runs on Node and
+edge runtimes.
+
+Requires a running [Whappr Gateway](https://github.com/whappr/whappr/tree/main/apps/gateway).
 
 ## Install
 
@@ -23,10 +29,8 @@ export const channel = createWhapprChannel({
   secret: process.env.SECRET_KEY!,
 
   // Path: /channels/whappr/webhook
-  async events({ events }) {
-    for (const event of events) {
-      console.log('verified event:', event.type);
-    }
+  async event({ event }) {
+    console.log('verified event:', event.type);
   },
 });
 ```
@@ -42,57 +46,37 @@ app.route('/channels/whappr', channel.route());
 export default app;
 ```
 
-Set the gateway's `WEBHOOK_URL` to `https://<your-app>/channels/whappr/webhook`, and
-`SECRET_KEY` to the same value passed here.
+Set the gateway's `WEBHOOK_URL` to `https://<your-app>/channels/whappr/webhook`, and its `SECRET_KEY` to the
+same value passed here.
 
-### Options
+## Options
 
 `createWhapprChannel(options)` accepts:
 
 | Option | Description |
 |---|---|
 | `secret` | Required. Shared secret configured on the gateway as `SECRET_KEY`. Used to verify the webhook signature. |
-| `events` | Required. Callback invoked with each verified batch of webhook events: `({ c, events }) => void \| JsonValue \| Response`. |
-| `bodyLimit` | Maximum accepted request body size in bytes (default `1_048_576`, i.e. 1 MiB). |
-| `maxSignatureAgeSeconds` | Maximum age of a signed request before it's rejected as stale (default `300`). |
+| `event` | Required. Callback invoked with each verified webhook event: `({ c, event }) => void \| JsonValue \| Response`. Event types come from [`@whappr/protocol`](https://github.com/whappr/whappr/tree/main/packages/protocol) and are re-exported here. |
 
-### API
+Requests with a missing, invalid or older-than-5-minutes signature get `401`; bodies over 1 MiB get `413`.
+`createWhapprChannel()` throws a `TypeError` if `secret` or `event` is missing.
 
-**`createWhapprChannel(options)`** — Verifies the gateway's webhook signature before `events({ c, events })` runs — see [Options](#options).
+## API
+
+**`createWhapprChannel(options)`** — Verifies the gateway's webhook signature before `event({ c, event })`
+runs. See [Options](#options).
 
 **`channel.route()`** — Mountable Hono sub-app (`POST /webhook`).
 
-**`channel.instanceId({ chatId })`** — Canonical agent-instance id: `whappr:v1:chat:<chatId>`.
+**`channel.instanceId(chatId)`** — Agent-instance id for one chat: `whappr:chat:<chatId>`.
 
-**`channel.parseInstanceId(id)`** — Inverse of `instanceId()`.
+This package only handles incoming webhooks. To send replies, call
+[`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client) from your own agent or tool
+code.
 
-Ingress-only: this package verifies inbound webhooks and hands you the event batch. Sending
-replies means calling [`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client) directly from your own agent/tool code.
+## Wiring into a Flue app
 
-### Errors
-
-Every failure extends `WhapprChannelError`, so one `catch` handles them all — or narrow to a specific subclass:
-
-- `WhapprInvalidInputError` — bad input to `createWhapprChannel()` or `instanceId()`; check `.field` for which option/argument failed
-- `WhapprInvalidInstanceIdError` — `parseInstanceId()` was given a non-canonical id
-
-```ts
-import { WhapprChannelError, WhapprInvalidInputError } from '@whappr/flue';
-
-try {
-  const channel = createWhapprChannel({ secret: process.env.SECRET_KEY!, events });
-} catch (error) {
-  if (error instanceof WhapprInvalidInputError) {
-    // error.field tells you which option was invalid
-  } else if (error instanceof WhapprChannelError) {
-    // any other channel error
-  } else {
-    throw error;
-  }
-}
-```
-
-### Wiring into a Flue app
+Each chat gets its own agent instance. Commands and messages are dispatched as different signals:
 
 ```ts
 // channels/whappr.ts
@@ -102,54 +86,54 @@ import { Assistant } from '../agents/assistant.ts';
 
 export const channel = createWhapprChannel({
   secret: process.env.SECRET_KEY!,
-  async events({ events }) {
-    for (const event of events) {
-      const id = channel.instanceId({ chatId: event.data.from });
+  async event({ event }) {
+    if (event.type !== 'message.received') return;
 
-      // Plain messages dispatch as a generic signal.
-      if (event.type === 'msg.received') {
-        await dispatch(Assistant, {
-          id,
-          initialData: { chatId: event.data.from },
-          message: {
-            kind: 'signal',
-            type: 'whappr.message.received',
-            body: event.data.body,
-            attributes: { messageId: event.data.id },
-          },
-        });
-        continue;
-      }
+    // Every event carries its conversation as `data.chat`, whatever its type.
+    const chatId = event.data.chat.id;
+    const id = channel.instanceId(chatId);
 
-      // Commands get their own signal type so the agent can route them to dedicated
-      // handlers — @whappr/flue stays agnostic to what a "command" is.
-      if (event.type === 'cmd.invoked') {
-        await dispatch(Assistant, {
-          id,
-          initialData: { chatId: event.data.from },
-          message: {
-            kind: 'signal',
-            type: 'whappr.command.invoked',
-            body: event.data.args.join(' '),
-            attributes: {
-              command: event.data.command,
-              args: event.data.args,
-              messageId: event.data.id,
-            },
-          },
-        });
-        continue;
-      }
+    // Commands get their own signal type so the agent can route them to dedicated handlers.
+    // e.g. "/subscribe daily digest" → command "subscribe", args ["daily", "digest"]
+    const [command, ...args] =
+      event.data.kind === 'text' && event.data.text.startsWith('/')
+        ? event.data.text.slice(1).trim().split(/\s+/)
+        : [];
+    if (command) {
+      await dispatch(Assistant, {
+        id,
+        initialData: { chatId },
+        message: {
+          kind: 'signal',
+          type: 'whappr.command.invoked',
+          body: args.join(' '),
+          attributes: { command, args, messageId: event.data.id },
+        },
+      });
+      return;
     }
+
+    // Messages dispatch as a generic signal. `text` is the body or a media caption.
+    await dispatch(Assistant, {
+      id,
+      initialData: { chatId },
+      message: {
+        kind: 'signal',
+        type: 'whappr.message.received',
+        body: event.data.text ?? '',
+        attributes: { messageId: event.data.id, kind: event.data.kind },
+      },
+    });
   },
 });
 ```
 
-Replies are sent from your own agent/tool code via [`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client), as noted above.
+Your agent then replies with [`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client),
+for example `client.chats.whileTyping(chatId, ...)` around `client.messages.send(...)`.
 
 ## Contributing
 
-Pull requests are welcomed.
+Pull requests are welcome.
 
 ## License
 

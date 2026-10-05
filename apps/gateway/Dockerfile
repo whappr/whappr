@@ -11,15 +11,20 @@ ENV NODE_ENV=development \
 # package.json, even though only apps/gateway gets installed/built below.
 COPY package.json package-lock.json ./
 COPY apps/gateway/package.json apps/gateway/package.json
+COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/flue/package.json packages/flue/package.json
 
 RUN npm ci --workspace apps/gateway --include-workspace-root
 
 COPY tsconfig.json tsconfig.build.json ./
+COPY packages/protocol packages/protocol
 COPY apps/gateway apps/gateway
 
-RUN npm run build --workspace apps/gateway
+# @whappr/protocol (wire types and webhook signing) must be built before the gateway compiles
+# against it; its output is copied into the runtime stage too.
+RUN npm run build --workspace packages/protocol \
+    && npm run build --workspace apps/gateway
 
 FROM node:24-alpine AS runtime
 WORKDIR /whappr
@@ -41,11 +46,13 @@ RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefo
 # cache only busts when dependencies actually change, not on every source edit.
 COPY package.json package-lock.json ./
 COPY apps/gateway/package.json apps/gateway/package.json
+COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/flue/package.json packages/flue/package.json
 
 RUN npm ci --omit=dev --omit=optional --workspace apps/gateway --include-workspace-root
 
+COPY --from=build /whappr/packages/protocol/dist packages/protocol/dist
 COPY --from=build /whappr/apps/gateway/dist apps/gateway/dist
 COPY apps/gateway/public apps/gateway/public
 
@@ -53,7 +60,7 @@ RUN chown -R node:node apps/gateway
 
 USER node
 
-# Switches cwd for the app itself (./public and its default session dir
+# Switches cwd for the app itself (./public and its default data dir
 # resolve relative to this), separate from /whappr above which npm needed
 # for workspace resolution.
 WORKDIR /whappr/apps/gateway

@@ -1,3 +1,4 @@
+import { type ChatsApi, createChatsApi } from './namespaces/chats.js';
 import { createMessagesApi, type MessagesApi } from './namespaces/messages.js';
 import { createSessionApi, type SessionApi } from './namespaces/session.js';
 import { createTransport } from './transport.js';
@@ -18,6 +19,7 @@ export interface WhapprClient {
   health(): Promise<void>;
   readonly session: SessionApi;
   readonly messages: MessagesApi;
+  readonly chats: ChatsApi;
 }
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -34,7 +36,8 @@ export function createWhapprClient(options: WhapprClientOptions): WhapprClient {
     async health() {
       await transport.request({ method: 'GET', path: '/health' });
     },
-    session: createSessionApi(transport, options.secret),
+    session: createSessionApi(transport),
     messages: createMessagesApi(transport),
+    chats: createChatsApi(transport),
   };
 }

@@ -1,39 +1,41 @@
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
-import type { Logger } from '../logging/logger.js';
+import { bearerAuth } from 'hono/bearer-auth';
+import { type RequestIdVariables, requestId } from 'hono/request-id';
+import type { Logger } from 'pino';
 import type { WhatsappClient } from '../whatsapp/client.js';
-import type { WhatsappSession } from '../whatsapp/session.js';
 import { handleError } from './errors.js';
-import {
-  requestIdHeaderMiddleware,
-  requestIdMiddleware,
-} from './middlewares/request-id.middleware.js';
-import { requestLoggerMiddleware } from './middlewares/request-logger.middleware.js';
-import { createHealthRoute } from './routes/health.js';
-import { createLogoutRoute } from './routes/logout.js';
+import { requestLogger } from './middlewares.js';
+import { createChatsRoute } from './routes/chats.js';
 import { createMessagesRoute } from './routes/messages.js';
-import { createStatusRoute } from './routes/status.js';
-import type { AppEnv } from './types.js';
+import { createSessionRoute } from './routes/session.js';
+
+export type AppEnv = {
+  Variables: RequestIdVariables & { logger: Logger };
+};
 
 export interface AppDeps {
   secret: string;
+  mediaMaxBytes: number;
   client: WhatsappClient;
-  session: WhatsappSession;
   logger: Logger;
 }
 
-export function createApp(deps: AppDeps): Hono<AppEnv> {
+export function createApp({ secret, mediaMaxBytes, client, logger }: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  app.use(requestIdMiddleware());
-  app.use(requestIdHeaderMiddleware());
-  app.use(requestLoggerMiddleware(deps.logger));
+  // Also echoes the id back as `X-Request-Id`.
+  app.use(requestId());
+  app.use(requestLogger(logger));
 
   app.get('/', serveStatic({ path: './public/index.html' }));
-  app.route('/health', createHealthRoute());
-  app.route('/api/status', createStatusRoute(deps));
-  app.route('/api/logout', createLogoutRoute(deps));
-  app.route('/api/messages', createMessagesRoute(deps));
+  app.get('/health', (c) => c.json({ ok: true }));
+
+  app.use('/api/*', bearerAuth({ token: secret }));
+  app.route('/api/session', createSessionRoute(client));
+  app.route('/api/messages', createMessagesRoute(client, mediaMaxBytes));
+  app.route('/api/chats', createChatsRoute(client));
+
   app.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: 'Not Found' } }, 404));
   app.onError(handleError);
 
