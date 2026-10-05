@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <mask id="logo-cutout">
+      <rect width="50" height="50" fill="#fff" />
+      <circle cx="38" cy="38" r="10" fill="#000" />
+    </mask>
+  </defs>
+  <rect width="1024" height="1024" fill="#0b141a" />
+  <!-- Mark is drawn in the UI's 50×50 space, scaled to ~60% of the canvas and centered on its bounding box. -->
+  <g transform="translate(139.6 146.6) scale(14)">
+    <path
+      mask="url(#logo-cutout)"
+      fill="#25d366"
+      d="M5 17a13 13 0 0 1 13-13h8a17 17 0 0 1 17 17v1a17 17 0 0 1-17 17h-10l-11 7z"
+    />
+    <circle cx="38" cy="38" r="3" fill="#25d366" />
+    <path
+      d="M43.5 38a5.5 5.5 0 0 1-5.5 5.5M47 38a9 9 0 0 1-9 9"
+      fill="none"
+      stroke="#e9edef"
+      stroke-width="2.4"
+      stroke-linecap="round"
+    />
+  </g>
+</svg>

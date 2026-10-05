@@ -44,6 +44,8 @@ export function createApp({
   app.use(requestLogger(logger));
 
   app.get('/', serveStatic({ path: './public/index.html' }));
+  app.get('/styles.css', serveStatic({ path: './public/styles.css' }));
+  app.get('/app.js', serveStatic({ path: './public/app.js' }));
   app.get('/health', (c) =>
     c.json({ ok: true, version, webhook: webhook.last() } satisfies HealthResponse),
   );
