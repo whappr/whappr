@@ -1,6 +1,6 @@
 {
   "name": "@whappr/protocol",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared types and webhook signing for Whappr.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
   "license": "MIT",
