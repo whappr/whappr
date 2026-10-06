@@ -3,14 +3,14 @@ import type { Transport } from '../transport.js';
 
 export interface SessionApi {
   /** GET /api/session — pairing status, the QR code while awaiting a scan, and the paired account once ready. */
-  getStatus(): Promise<SessionState>;
+  status(): Promise<SessionState>;
   /** POST /api/session/logout — unpairs the account; the gateway then shows a new QR code. */
   logout(): Promise<void>;
 }
 
 export function createSessionApi(transport: Transport): SessionApi {
   return {
-    getStatus() {
+    status() {
       return transport.request<SessionState>({ method: 'GET', path: '/api/session' });
     },
     async logout() {

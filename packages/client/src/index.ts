@@ -9,5 +9,5 @@ export {
   WhapprTimeoutError,
 } from './errors.js';
 export type { ChatsApi } from './namespaces/chats.js';
-export type { CallOptions, MessagesApi } from './namespaces/messages.js';
+export type { CallOptions, MessagesApi, MessagesMediaApi } from './namespaces/messages.js';
 export type { SessionApi } from './namespaces/session.js';

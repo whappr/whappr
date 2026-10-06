@@ -16,22 +16,26 @@ export interface CallOptions {
   timeoutMs?: number;
 }
 
+export interface MessagesMediaApi {
+  /**
+   * GET /api/messages/:id/media — the message's file. `blob.type` is its MIME type; its
+   * name, if any, is in the message's `media.fileName`.
+   */
+  download(messageId: string, options?: CallOptions): Promise<Blob>;
+}
+
 export interface MessagesApi {
+  readonly media: MessagesMediaApi;
   /** POST /api/messages — set `replyTo` to send it as a reply, `media` to send a file. */
   send(input: SendMessageRequest, options?: CallOptions): Promise<Message>;
   /** PATCH /api/messages/:id */
   edit(messageId: string, input: EditMessageRequest): Promise<Message>;
   /** DELETE /api/messages/:id — deletes for everyone. */
   delete(messageId: string): Promise<void>;
-  /**
-   * GET /api/messages/:id/media — the message's file. `blob.type` is its MIME type; its
-   * name, if any, is in the message's `media.fileName`.
-   */
-  downloadMedia(messageId: string, options?: CallOptions): Promise<Blob>;
   /** PUT /api/messages/:id/reaction — sets, or replaces, your reaction. */
   react(messageId: string, input: SetReactionRequest): Promise<void>;
   /** DELETE /api/messages/:id/reaction */
-  removeReaction(messageId: string): Promise<void>;
+  unreact(messageId: string): Promise<void>;
 }
 
 function messagePath(messageId: string, suffix = ''): string {
@@ -60,13 +64,15 @@ export function createMessagesApi(transport: Transport): MessagesApi {
     async delete(messageId) {
       await transport.request({ method: 'DELETE', path: messagePath(messageId) });
     },
-    downloadMedia(messageId, options) {
-      return transport.request<Blob>({
-        method: 'GET',
-        path: messagePath(messageId, '/media'),
-        responseType: 'blob',
-        timeoutMs: options?.timeoutMs,
-      });
+    media: {
+      download(messageId, options) {
+        return transport.request<Blob>({
+          method: 'GET',
+          path: messagePath(messageId, '/media'),
+          responseType: 'blob',
+          timeoutMs: options?.timeoutMs,
+        });
+      },
     },
     async react(messageId, input) {
       await transport.request({
@@ -75,7 +81,7 @@ export function createMessagesApi(transport: Transport): MessagesApi {
         body: input,
       });
     },
-    async removeReaction(messageId) {
+    async unreact(messageId) {
       await transport.request({
         method: 'DELETE',
         path: messagePath(messageId, '/reaction'),

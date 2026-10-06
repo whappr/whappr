@@ -37,12 +37,27 @@ export interface WebhookDelivery {
   status?: number;
 }
 
-/** `GET /health`. Unauthenticated, so it carries no URLs or error details. */
+/** The health of the WhatsApp session. */
+export interface SessionHealth {
+  /** `false` once the session is `failed`, which it doesn't recover from by itself. */
+  ok: boolean;
+  /** The session's status, as `GET /api/session` reports it. */
+  status: SessionStatus;
+}
+
+/**
+ * `GET /health`. Unauthenticated, so it carries no URLs, account or error details. Answers
+ * `200`, or `503` when `ok` is `false`.
+ */
 export interface HealthResponse {
-  /** Always `true` while the server responds; webhook failures don't change it. */
-  ok: true;
+  /**
+   * Whether every component that makes the gateway unusable is healthy: today only the
+   * `session`. Webhook failures don't change it.
+   */
+  ok: boolean;
   /** The gateway's version. */
   version: string;
+  session: SessionHealth;
   /** The most recent webhook delivery since the gateway started, or `null` before the first. */
   webhook: WebhookDelivery | null;
 }

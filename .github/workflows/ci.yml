@@ -101,6 +101,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up QEMU
+        if: steps.gateway.outputs.changed == 'true'
+        uses: docker/setup-qemu-action@v4
+
       - name: Set up Docker Buildx
         if: steps.gateway.outputs.changed == 'true'
         uses: docker/setup-buildx-action@v4
@@ -111,6 +115,7 @@ jobs:
         with:
           context: .
           file: apps/gateway/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max

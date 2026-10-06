@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { serveStatic } from '@hono/node-server/serve-static';
-import type { HealthResponse } from '@whappr/protocol';
+import type { HealthResponse, SessionHealth } from '@whappr/protocol';
 import { Hono } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
 import { type RequestIdVariables, requestId } from 'hono/request-id';
@@ -46,9 +46,17 @@ export function createApp({
   app.get('/', serveStatic({ path: './public/index.html' }));
   app.get('/styles.css', serveStatic({ path: './public/styles.css' }));
   app.get('/app.js', serveStatic({ path: './public/app.js' }));
-  app.get('/health', (c) =>
-    c.json({ ok: true, version, webhook: webhook.last() } satisfies HealthResponse),
-  );
+  // `failed` is the only state the client doesn't recover from by itself (e.g. Chromium didn't
+  // launch), so it's the only one that turns the container unhealthy.
+  app.get('/health', (c) => {
+    const { status } = client.state;
+    const session: SessionHealth = { ok: status !== 'failed', status };
+    const ok = session.ok;
+    return c.json(
+      { ok, version, session, webhook: webhook.last() } satisfies HealthResponse,
+      ok ? 200 : 503,
+    );
+  });
 
   app.use('/api/*', bearerAuth({ token: secret }));
   app.route('/api/session', createSessionRoute(client));

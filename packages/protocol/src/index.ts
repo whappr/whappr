@@ -10,6 +10,7 @@ export type {
   SendMessageRequest,
   SendTextRequest,
   SessionAccount,
+  SessionHealth,
   SessionState,
   SessionStatus,
   SetReactionRequest,

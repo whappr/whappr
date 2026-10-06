@@ -24,8 +24,8 @@ or connect it to Flue agents with [`@whappr/flue`](https://github.com/whappr/wha
 
 ## Install
 
-The gateway is published to `ghcr.io/whappr/whappr-gateway`, tagged `latest` and per release
-(e.g. `1.0.0`). Set at least `SECRET_KEY` and `WEBHOOK_URL` (see [Configuration](#configuration)), then
+The gateway is published to `ghcr.io/whappr/whappr-gateway` for `linux/amd64` and `linux/arm64`,
+tagged `latest` and per release (e.g. `1.0.0`). Set at least `SECRET_KEY` and `WEBHOOK_URL` (see [Configuration](#configuration)), then
 run it either way.
 
 ### Using `docker run`
@@ -98,7 +98,10 @@ Request and response bodies, and every webhook event, are typed in
 
 ### Health
 
-- `GET /health` — no auth. `{ ok: true, version, webhook }`. `webhook` is the most recent delivery since startup,
+- `GET /health` — no auth. `{ ok, version, session: { ok, status }, webhook }`. `session.status` is the WhatsApp
+  session's status (see [Session states](#session-states)); once it's `failed` (e.g. Chromium couldn't launch),
+  `session.ok` and the top-level `ok` turn `false` and the response is a `503`, which marks the container
+  unhealthy. The top-level `ok` is the overall result across components. `webhook` is the most recent delivery since startup,
   `{ at, ok, status? }` (`status` is absent when no response arrived), or `null` before the first. It carries
   no URL or error details, and `ok` stays `true` when deliveries fail, so container health checks don't
   restart the gateway over a broken webhook receiver.

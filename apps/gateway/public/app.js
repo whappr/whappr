@@ -134,11 +134,12 @@ function showProblem(pill, title, text) {
 }
 
 // Unauthenticated and best-effort: older gateways answer `{ ok: true }` only, and a failure
-// here must not affect the session view.
+// here must not affect the session view. A `503` still carries the usual body (the session
+// failed, which the session view already shows).
 async function refreshHealth() {
   try {
     const response = await fetch('/health');
-    if (!response.ok) return;
+    if (!response.ok && response.status !== 503) return;
     const health = await response.json();
     if (health.version) versionLabel.textContent = ` v${health.version}`;
     if (health.webhook !== undefined) renderWebhook(health.webhook);

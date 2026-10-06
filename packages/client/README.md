@@ -44,7 +44,7 @@ Voice notes arrive as `kind: 'voice'`. Download them to transcribe:
 
 ```ts
 if (event.type === 'message.received' && event.data.kind === 'voice') {
-  const audio = await client.messages.downloadMedia(event.data.id);
+  const audio = await client.messages.media.download(event.data.id);
   const form = new FormData();
   form.append('file', audio, 'voice.ogg'); // e.g. for a speech-to-text API
 }
@@ -80,8 +80,8 @@ the [wire contract](https://github.com/whappr/whappr/tree/main/packages/protocol
 
 ### Health
 
-**`client.health()`** — Unauthenticated liveness check. Resolves with `{ ok, version, webhook }` if the gateway is up,
-throws otherwise. `webhook` is the most recent delivery since the gateway started (`{ at, ok, status? }`), or
+**`client.health()`** — Unauthenticated liveness check. Resolves with `{ ok, version, session, webhook }` if
+the gateway is up, throws otherwise, including a `WhapprApiError` with status `503` once the session is `failed`. `webhook` is the most recent delivery since the gateway started (`{ at, ok, status? }`), or
 `null` before the first, so you can tell whether your receiver is getting events:
 
 ```ts
@@ -91,7 +91,7 @@ if (webhook && !webhook.ok) console.warn(`webhook failing: ${webhook.status ?? '
 
 ### Session
 
-**`client.session.getStatus()`** — Reads the current WhatsApp session state (`starting`, `awaiting_scan`,
+**`client.session.status()`** — Reads the current WhatsApp session state (`starting`, `awaiting_scan`,
 `ready`, `failed` or `disconnected`), including the pairing QR code while awaiting a scan and the paired
 account (`id`, `phone`, `name`) once ready.
 
@@ -126,14 +126,14 @@ before retrying, or you may send it twice.
 
 **`client.messages.delete(messageId)`** — Deletes a message for everyone.
 
-**`client.messages.downloadMedia(messageId, options?)`** — Downloads a message's file as a `Blob`
+**`client.messages.media.download(messageId, options?)`** — Downloads a message's file as a `Blob`
 (`blob.type` is its MIME type; the file name, if any, is in the event's `media.fileName`). Throws
 `MEDIA_NOT_FOUND`, `MEDIA_UNAVAILABLE` (WhatsApp no longer serves it) or `MEDIA_TOO_LARGE` (over the
 gateway's `MEDIA_MAX_SIZE`).
 
 **`client.messages.react(messageId, { emoji })`** — Sets, or replaces, your reaction on a message.
 
-**`client.messages.removeReaction(messageId)`** — Removes your reaction from a message.
+**`client.messages.unreact(messageId)`** — Removes your reaction from a message.
 
 ### Chats
 
@@ -166,7 +166,7 @@ try {
   await client.messages.send({ to: '1555123456', text: 'Hi' });
 } catch (error) {
   if (error instanceof WhapprApiError && error.code === 'NOT_READY') {
-    // session isn't connected yet, poll client.session.getStatus()
+    // session isn't connected yet, poll client.session.status()
   } else if (error instanceof WhapprClientError) {
     // any other client/network/timeout failure
   } else {
