@@ -22,6 +22,16 @@ or connect it to Flue agents with [`@whappr/flue`](https://github.com/whappr/wha
 - **Secure by default** — the API takes a bearer token, and every webhook is HMAC-signed.
 - **Simple, few dependencies** — a thin Hono API in front of whatsapp-web.js, no extra framework.
 
+## Risks
+
+The gateway is unofficial: it uses [whatsapp-web.js](https://wwebjs.dev/), not Meta's official
+[WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api), so WhatsApp can restrict or
+ban the number you link.
+
+- **Use a dedicated number** you can afford to lose, never your primary one.
+- **Only message people who expect it.** Don't cold-message strangers or send in bulk.
+- **Keep a fallback** for anything critical. For regulated use, choose the official Cloud API.
+
 ## Install
 
 The gateway is published to `ghcr.io/whappr/whappr-gateway` for `linux/amd64` and `linux/arm64`,

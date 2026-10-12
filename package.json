@@ -19,7 +19,7 @@
     "build": "npm run build --workspaces",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "typecheck": "tsc --noEmit"
+    "check:types": "tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",

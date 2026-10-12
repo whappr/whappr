@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AnyWhapprEvent, Message, SendMessageRequest, SessionState } from '@whappr/protocol';
 import type { Logger } from 'pino';
@@ -46,6 +47,7 @@ export class WhatsappClient extends EventEmitter<{ event: [event: AnyWhapprEvent
   readonly #client: wwebjs.Client;
   readonly #logger: Logger;
   readonly #mediaMaxBytes: number;
+  readonly #chromiumProfileDir: string;
   #state: Omit<SessionState, 'account'> = { status: 'starting', qr: null };
   #me: Me | null = null;
   #restartInFlight: Promise<void> | null = null;
@@ -58,6 +60,8 @@ export class WhatsappClient extends EventEmitter<{ event: [event: AnyWhapprEvent
 
     this.#logger = logger;
     this.#mediaMaxBytes = mediaMaxBytes;
+    // LocalAuth's userDataDir when no clientId is set.
+    this.#chromiumProfileDir = join(dataDir, 'auth', 'session');
     this.#client = new Client({
       authStrategy: new LocalAuth({ dataPath: join(dataDir, 'auth') }),
       webVersionCache: { type: 'local', path: join(dataDir, 'cache') },
@@ -75,6 +79,7 @@ export class WhatsappClient extends EventEmitter<{ event: [event: AnyWhapprEvent
   async start(): Promise<void> {
     this.#state = { status: 'starting', qr: null };
     try {
+      await this.#unlockChromiumProfile();
       await this.#client.initialize();
     } catch (error) {
       this.#logger.error({ error }, 'failed to initialize WhatsApp client');
@@ -204,6 +209,18 @@ export class WhatsappClient extends EventEmitter<{ event: [event: AnyWhapprEvent
       throw new WhatsappError('WhatsApp client is not ready', 'NOT_READY');
     }
     return this.#me;
+  }
+
+  /**
+   * Removes a lock left by a Chromium that didn't exit cleanly. Chromium won't clear one
+   * written under another hostname, which is every lock left by a previous container.
+   */
+  async #unlockChromiumProfile(): Promise<void> {
+    await Promise.all(
+      ['SingletonLock', 'SingletonCookie', 'SingletonSocket'].map((name) =>
+        rm(join(this.#chromiumProfileDir, name), { force: true }),
+      ),
+    );
   }
 
   #restart(): Promise<void> {

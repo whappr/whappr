@@ -23,6 +23,16 @@ agent as a signed webhook, and your agent replies through a small REST API.
 - **Small and self-hosted** — one Docker image: a thin [Hono](https://hono.dev/) API in front of
   [whatsapp-web.js](https://wwebjs.dev/).
 
+## Risks
+
+Whappr is unofficial: it uses [whatsapp-web.js](https://wwebjs.dev/), not Meta's official
+[WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api), so WhatsApp can restrict or
+ban the number you link.
+
+- **Use a dedicated number** you can afford to lose, never your primary one.
+- **Only message people who expect it.** Don't cold-message strangers or send in bulk.
+- **Keep a fallback** for anything critical. For regulated use, choose the official Cloud API.
+
 ## Quickstart
 
 **1. Run the gateway.** Point `WEBHOOK_URL` at your agent's endpoint:
