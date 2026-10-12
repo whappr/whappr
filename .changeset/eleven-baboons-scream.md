@@ -1,5 +1,0 @@
----
-"@whappr/gateway": patch
----
-
-Update
