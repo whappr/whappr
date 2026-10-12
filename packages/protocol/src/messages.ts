@@ -58,10 +58,8 @@ export interface ContactCard {
 /** The message being replied to (quoted), as known when the reply was received. */
 export interface ReplyContext {
   id: string;
-  sender: {
-    id: string;
-    isMe: boolean;
-  };
+  /** `name` is usually absent when someone else wrote the quoted message. */
+  sender: Participant;
   text?: string;
 }
 

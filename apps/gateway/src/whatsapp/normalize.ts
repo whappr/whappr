@@ -117,7 +117,7 @@ async function replyContextOf(message: WwebMessage, me: Me): Promise<ReplyContex
   if (!quoted) return undefined;
   return {
     id: quoted.id._serialized,
-    sender: { id: senderOf(quoted, me).id, isMe: quoted.fromMe },
+    sender: senderOf(quoted, me),
     text: textOf(quoted, kindOf(quoted) ?? 'unsupported'),
   };
 }
