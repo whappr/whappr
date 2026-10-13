@@ -1,6 +1,6 @@
 {
   "name": "@whappr/gateway",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "description": "Self-hosted WhatsApp gateway for AI agents.",
   "author": "Alexandru Bau (https://github.com/alexandrubau)",
