@@ -11,7 +11,10 @@ import type { Logger } from 'pino';
 const WEBHOOK_TIMEOUT_MS = 5000;
 
 export interface WebhookDispatcher {
-  /** POSTs `event` once every event sent before it has been delivered (or has failed). */
+  /**
+   * POSTs `event`, unless `filter` drops it, once every event sent before it has been delivered
+   * (or has failed or been dropped).
+   */
   send(event: AnyWhapprEvent): void;
   /** Resolves once every event sent so far has been delivered (or has failed). */
   drain(): Promise<void>;
@@ -22,15 +25,21 @@ export interface WebhookDispatcher {
 export function createWebhookDispatcher(opts: {
   webhookUrl: string;
   secret: string;
+  /**
+   * Resolves `true` to POST the event, `false` to drop it. Checked in delivery order, so an
+   * async check can't reorder events.
+   */
+  filter?: (event: AnyWhapprEvent) => Promise<boolean>;
   logger: Logger;
 }): WebhookDispatcher {
-  const { webhookUrl, secret, logger } = opts;
+  const { webhookUrl, secret, filter, logger } = opts;
   let queue: Promise<void> = Promise.resolve();
   let last: WebhookDelivery | null = null;
 
   // Never rejects, so one failed delivery can't stall the queue.
   async function post(event: AnyWhapprEvent): Promise<void> {
     try {
+      if (filter && !(await filter(event))) return;
       const rawBody = JSON.stringify(event satisfies WebhookPayload);
       const { timestamp, signature } = await signWebhook(secret, rawBody);
       const response = await fetch(webhookUrl, {

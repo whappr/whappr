@@ -56,7 +56,7 @@ export type AnyWhapprEvent =
 
 export type WhapprEventType = AnyWhapprEvent['type'];
 
-/** Every event type, e.g. to validate the gateway's `WEBHOOK_EVENTS`. */
+/** Every event type, e.g. to validate the gateway's `WEBHOOK_EVENT_TYPES`. */
 export const WHAPPR_EVENT_TYPES = [
   'message.received',
   'message.edited',

@@ -98,7 +98,8 @@ curl -X POST http://localhost:3000/api/messages \
 | `PORT` | HTTP port (default `3000`). |
 | `LOG_LEVEL` | Log verbosity: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (default `info`). |
 | `DATA_DIR` | Where the paired session and the WhatsApp Web version cache are kept (default `data`). |
-| `WEBHOOK_EVENTS` | Comma-separated event types to send, e.g. `message.received,reaction.added` (default: all). |
+| `WEBHOOK_EVENT_TYPES` | Comma-separated event types to send, e.g. `message.received,reaction.added` (default: all). |
+| `WEBHOOK_CHAT_IDS` | Comma-separated chats to send events for: phone numbers or chat ids, e.g. `40712345678,120363…@g.us` (default: all). See [Filtering events](#filtering-events). |
 | `MEDIA_MAX_SIZE` | Largest file, in megabytes, the gateway sends or downloads (default `64`). Files pass through the browser in memory as base64. Doesn't affect webhooks, which only carry media metadata. |
 
 ## API
@@ -192,9 +193,6 @@ route on `data.chat.id` regardless of the event type.
 | `reaction.added` | `messageId`, `chat`, `sender`, `emoji`. Also sent when a reaction is replaced. |
 | `reaction.removed` | `messageId`, `chat`, `sender`. |
 
-Set `WEBHOOK_EVENTS` to receive only some of these types. Anything finer, like one conversation or group
-messages that @-mention you, is a line of code in your handler, on fully typed events.
-
 A message carries `id`, `chat`, `sender` (`{ id, name?, isMe }`), `timestamp` (ISO 8601), `kind` (`text`,
 `image`, `video`, `audio`, `voice`, `document`, `sticker`, `location`, `contact` or `unsupported`), `text`
 (the body, or a media caption), `replyTo` (the quoted message, if any), `mentions` and `mentionsMe`.
@@ -204,6 +202,21 @@ Kind-specific fields: `media` (`{ mimeType, fileName?, size?, duration? }`; down
 Ids (`chat.id`, `sender.id`, message ids) are opaque: store them and pass them back as-is.
 
 Bot commands (`/subscribe daily`) are plain `message.received` text: parse `data.text` in your handler.
+
+### Filtering events
+
+Set `WEBHOOK_EVENT_TYPES` to receive only some event types, and `WEBHOOK_CHAT_IDS` to receive only some
+conversations. An event is sent when it passes both. Events from other chats never leave the gateway, but
+the API can still reach every chat.
+
+`WEBHOOK_CHAT_IDS` takes phone numbers in international format (`40712345678`), direct chat ids (`…@c.us`,
+`…@lid`) and group chat ids (`…@g.us`). A phone number or `@c.us` id also matches the chat when WhatsApp
+addresses it by its privacy id (`…@lid`). Phone numbers aren't looked up, so write them as they appear in
+`@c.us` ids. To find a chat id, run with `LOG_LEVEL=debug`: every event skipped for its chat is logged with
+its `chatId`.
+
+Anything finer, like group messages that @-mention you, is a line of code in your handler, on fully typed
+events.
 
 ## Session states
 

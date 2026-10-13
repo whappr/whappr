@@ -3,23 +3,28 @@ import pino from 'pino';
 import { loadEnv } from './config/env.js';
 import { createApp } from './http/app.js';
 import { createWebhookDispatcher } from './webhook/dispatcher.js';
+import { createWebhookFilter } from './webhook/filter.js';
 import { WhatsappClient } from './whatsapp/client.js';
 
 const env = loadEnv();
 const logger = pino({ level: env.LOG_LEVEL, errorKey: 'error' });
 const mediaMaxBytes = env.MEDIA_MAX_SIZE * 1024 * 1024;
 
+const client = new WhatsappClient({ dataDir: env.DATA_DIR, mediaMaxBytes, logger });
+
 const dispatcher = createWebhookDispatcher({
   webhookUrl: env.WEBHOOK_URL,
   secret: env.SECRET_KEY,
+  filter: createWebhookFilter({
+    eventTypes: env.WEBHOOK_EVENT_TYPES,
+    chatIds: env.WEBHOOK_CHAT_IDS,
+    client,
+    logger,
+  }),
   logger,
 });
 
-const client = new WhatsappClient({ dataDir: env.DATA_DIR, mediaMaxBytes, logger });
-
-client.on('event', (event) => {
-  if (env.WEBHOOK_EVENTS.has(event.type)) dispatcher.send(event);
-});
+client.on('event', (event) => dispatcher.send(event));
 
 const app = createApp({
   secret: env.SECRET_KEY,

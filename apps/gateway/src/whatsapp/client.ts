@@ -203,6 +203,13 @@ export class WhatsappClient extends EventEmitter<{ event: [event: AnyWhapprEvent
     if (!seen) throw new WhatsappError('Chat not found', 'CHAT_NOT_FOUND');
   }
 
+  /** The phone-based (`@c.us`) id of a `@lid` chat, or `null` if WhatsApp doesn't know it. */
+  async phoneIdOf(lid: string): Promise<string | null> {
+    this.#ready();
+    const [found] = await this.#client.getContactLidAndPhone([lid]);
+    return found?.pn ?? null;
+  }
+
   /** The paired account, or `NOT_READY` until the client is ready. */
   #ready(): Me {
     if (this.#state.status !== 'ready' || !this.#me) {
