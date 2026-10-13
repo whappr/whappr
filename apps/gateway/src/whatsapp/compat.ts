@@ -1,6 +1,7 @@
 /**
  * Runtime patches for whatsapp-web.js bugs that are fixed upstream but not yet released. Imported
- * for its side effects by `client.ts`, before any whatsapp-web.js structure is created.
+ * by `client.ts`: the Node-side patch applies on import, before any whatsapp-web.js structure is
+ * created; the page-side one is installed by `client.ts` on every `ready`.
  *
  * Remove each patch once the whatsapp-web.js release the gateway depends on ships its fix.
  */
@@ -37,3 +38,42 @@ function restoreSerializedMessageIds(): void {
 }
 
 restoreSerializedMessageIds();
+
+/**
+ * The same `_serialized` → `$1` rename, inside the WhatsApp Web page. whatsapp-web.js's injected
+ * code looks messages up by `msgKey._serialized`, which is now `undefined`:
+ * - `sendMessage` delivers the message, then resolves to `undefined` instead of the sent message;
+ * - `Message.edit` applies the edit, then resolves to `null` (which reads as "edit not allowed").
+ *
+ * Backport of upstream PR #201901 (open, unreleased): a `_serialized` getter on the `MsgKey`
+ * prototype that returns `toString()`, the key's serialized form. Its setter stores an own
+ * property, so builds that still assign `_serialized` in the constructor keep their value. Skipped
+ * when the prototype already defines `_serialized`, so it is harmless once the fix ships.
+ *
+ * The page's code (and this patch with it) is reloaded when WhatsApp Web navigates, and
+ * whatsapp-web.js emits `ready` again after re-injecting, so call this on every `ready`.
+ *
+ * REMOVE once whatsapp-web.js ships the `MsgKey` prototype getter.
+ */
+export async function restoreSerializedMsgKeysInPage(client: wwebjs.Client): Promise<void> {
+  await client.pupPage?.evaluate(() => {
+    // Runs in the browser, where whatsapp-web.js loads WhatsApp Web's modules via `require`.
+    const { require } = globalThis as unknown as { require(module: string): { prototype: object } };
+    const proto = require('WAWebMsgKey').prototype;
+    if ('_serialized' in proto) return;
+    Object.defineProperty(proto, '_serialized', {
+      configurable: true,
+      get(this: { toString(): string }) {
+        return this.toString();
+      },
+      set(this: object, value: unknown) {
+        Object.defineProperty(this, '_serialized', {
+          value,
+          writable: true,
+          enumerable: true,
+          configurable: true,
+        });
+      },
+    });
+  });
+}
