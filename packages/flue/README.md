@@ -72,17 +72,29 @@ runs. See [Options](#options).
 
 This package only handles incoming webhooks. To send replies, call
 [`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client) from your own agent or tool
-code.
+code. See the next section.
 
 ## Wiring into a Flue app
 
-Each chat gets its own agent instance. Commands and messages are dispatched as different signals:
+Each chat gets its own agent instance. The channel dispatches each message as a signal carrying its sender,
+and the agent replies through a tool bound to its chat. Install the client and Valibot first:
+
+```sh
+npm install @whappr/client valibot
+```
 
 ```ts
 // channels/whappr.ts
+import { defineTool, dispatch } from '@flue/runtime';
+import { createWhapprClient } from '@whappr/client';
 import { createWhapprChannel } from '@whappr/flue';
-import { dispatch } from '@flue/runtime';
+import * as v from 'valibot';
 import { Assistant } from '../agents/assistant.ts';
+
+export const client = createWhapprClient({
+  baseUrl: process.env.WHAPPR_GATEWAY_URL!,
+  secret: process.env.SECRET_KEY!,
+});
 
 export const channel = createWhapprChannel({
   secret: process.env.SECRET_KEY!,
@@ -90,46 +102,91 @@ export const channel = createWhapprChannel({
     if (event.type !== 'message.received') return;
 
     // Every event carries its conversation as `data.chat`, whatever its type.
-    const chatId = event.data.chat.id;
-    const id = channel.instanceId(chatId);
+    const { chat, sender } = event.data;
+
+    // In a group the sender is the only way the model can tell who said what.
+    // `name` is the sender's own display name, absent when WhatsApp doesn't provide one.
+    const attributes: Record<string, string> = {
+      messageId: event.data.id,
+      kind: event.data.kind,
+      senderId: sender.id,
+      ...(sender.name ? { senderName: sender.name } : {}),
+    };
 
     // Commands get their own signal type so the agent can route them to dedicated handlers.
-    // e.g. "/subscribe daily digest" → command "subscribe", args ["daily", "digest"]
+    // e.g. "/subscribe daily digest" → command "subscribe", body "daily digest"
     const [command, ...args] =
       event.data.kind === 'text' && event.data.text.startsWith('/')
         ? event.data.text.slice(1).trim().split(/\s+/)
         : [];
-    if (command) {
-      await dispatch(Assistant, {
-        id,
-        initialData: { chatId },
-        message: {
-          kind: 'signal',
-          type: 'whappr.command.invoked',
-          body: args.join(' '),
-          attributes: { command, args, messageId: event.data.id },
-        },
-      });
-      return;
-    }
 
-    // Messages dispatch as a generic signal. `text` is the body or a media caption.
     await dispatch(Assistant, {
-      id,
-      initialData: { chatId },
-      message: {
-        kind: 'signal',
-        type: 'whappr.message.received',
-        body: event.data.text ?? '',
-        attributes: { messageId: event.data.id, kind: event.data.kind },
-      },
+      id: channel.instanceId(chat.id),
+      initialData: { chatId: chat.id, chatType: chat.type },
+      message: command
+        ? {
+            kind: 'signal',
+            type: 'whappr.command.invoked',
+            body: args.join(' '),
+            attributes: { ...attributes, command },
+          }
+        : // `text` is the body or a media caption.
+          { kind: 'signal', type: 'whappr.message.received', body: event.data.text ?? '', attributes },
     });
   },
 });
+
+// The model picks the text. The chat comes from trusted code, so the model can't send anywhere else.
+export function replyInChat(ref: { chatId: string; messageId?: string }) {
+  return defineTool({
+    name: 'send_whatsapp_message',
+    description:
+      'Send a WhatsApp message to the chat this conversation belongs to. Set `quote` to reply to ' +
+      'the latest message, which makes clear who you are answering in a group.',
+    input: v.object({
+      text: v.pipe(v.string(), v.minLength(1)),
+      quote: v.optional(v.boolean()),
+    }),
+    async run({ data }) {
+      const message = await client.messages.send({
+        to: ref.chatId,
+        text: data.text,
+        replyTo: data.quote ? ref.messageId : undefined,
+      });
+      return { output: { messageId: message.id } };
+    },
+  });
+}
 ```
 
-Your agent then replies with [`@whappr/client`](https://github.com/whappr/whappr/tree/main/packages/client),
-for example `client.chats.whileTyping(chatId, ...)` around `client.messages.send(...)`.
+```ts
+// agents/assistant.ts
+'use agent';
+import { useDelivery, useInitialData, useModel, useTool } from '@flue/runtime';
+import * as v from 'valibot';
+import { replyInChat } from '../channels/whappr.ts';
+
+export function Assistant() {
+  useModel('anthropic/claude-sonnet-4-6');
+
+  const { chatId, chatType } = useInitialData<v.InferOutput<typeof Assistant.initialData>>();
+  const delivery = useDelivery();
+  const messageId = delivery.kind === 'signal' ? delivery.attributes?.messageId : undefined;
+  useTool(replyInChat({ chatId, messageId }));
+
+  return chatType === 'group'
+    ? 'You are one participant in a WhatsApp group. Each message carries its senderId and senderName. ' +
+        'Reply with the send_whatsapp_message tool only when someone addresses you.'
+    : 'You are chatting with one person on WhatsApp. Answer with the send_whatsapp_message tool.';
+}
+
+Assistant.initialData = v.object({
+  chatId: v.string(),
+  chatType: v.picklist(['direct', 'group']),
+});
+```
+
+Set `WHAPPR_GATEWAY_URL` to the gateway's base URL, e.g. `https://gateway.example.com`.
 
 ## Contributing
 

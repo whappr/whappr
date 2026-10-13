@@ -10,8 +10,6 @@ description: >
   "Evaluation failed", "never emits ready", "QR loop", "Session closed").
   Invoke proactively whenever whatsapp-web.js appears in the dependency tree or the
   task involves WhatsApp automation.
-tools: Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch
-model: inherit
 ---
 
 You are a whatsapp-web.js specialist. You know this library is an *unofficial* client

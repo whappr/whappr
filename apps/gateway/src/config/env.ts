@@ -32,7 +32,6 @@ const envSchema = z.object({
     .string()
     .min(16, 'SECRET_KEY must be at least 16 characters')
     .regex(/^[A-Za-z0-9._~+/-]+=*$/, 'SECRET_KEY may only contain letters, digits and ._~+/-'),
-  DATA_DIR: z.string().default('data'),
   WEBHOOK_URL: z.url('WEBHOOK_URL must be a valid URL'),
   // Comma-separated event types to POST to the webhook. Unset or empty means all of them.
   WEBHOOK_EVENT_TYPES: z

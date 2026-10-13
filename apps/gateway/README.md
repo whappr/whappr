@@ -73,7 +73,9 @@ docker compose up
 ```
 
 Either way, the `whappr-data` volume keeps the paired WhatsApp session across restarts, so you don't have
-to scan the QR code again every time.
+to scan the QR code again every time. The session lives at `/whappr/apps/gateway/data` inside the
+container. If you bind-mount a host folder there instead (`-v ./data:/whappr/apps/gateway/data`), it
+must be writable by uid 1000, the `node` user the gateway runs as.
 
 ## Usage
 
@@ -97,7 +99,6 @@ curl -X POST http://localhost:3000/api/messages \
 | `WEBHOOK_URL` | Required. Where events are sent (see [Webhook events](#webhook-events)). |
 | `PORT` | HTTP port (default `3000`). |
 | `LOG_LEVEL` | Log verbosity: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (default `info`). |
-| `DATA_DIR` | Where the paired session and the WhatsApp Web version cache are kept (default `data`). |
 | `WEBHOOK_EVENT_TYPES` | Comma-separated event types to send, e.g. `message.received,reaction.added` (default: all). |
 | `WEBHOOK_CHAT_IDS` | Comma-separated chats to send events for: phone numbers or chat ids, e.g. `40712345678,120363…@g.us` (default: all). See [Filtering events](#filtering-events). |
 | `MEDIA_MAX_SIZE` | Largest file, in megabytes, the gateway sends or downloads (default `64`). Files pass through the browser in memory as base64. Doesn't affect webhooks, which only carry media metadata. |

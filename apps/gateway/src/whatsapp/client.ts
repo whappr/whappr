@@ -32,9 +32,11 @@ export interface DownloadedMedia {
   fileName?: string;
 }
 
+// Holds the paired session (`auth/`) and the WhatsApp Web version cache (`cache/`). Relative to
+// the cwd and fixed on purpose: the Docker image pre-creates it node-owned for the volume mount.
+const DATA_DIR = 'data';
+
 export interface WhatsappClientOptions {
-  /** Holds the paired session (`auth/`) and the WhatsApp Web version cache (`cache/`). */
-  dataDir: string;
   mediaMaxBytes: number;
   logger: Logger;
 }
@@ -55,16 +57,16 @@ export class WhatsappClient extends EventEmitter<{ event: [event: AnyWhapprEvent
   // keeps events in the order whatsapp-web.js emitted them.
   #queue: Promise<void> = Promise.resolve();
 
-  constructor({ dataDir, mediaMaxBytes, logger }: WhatsappClientOptions) {
+  constructor({ mediaMaxBytes, logger }: WhatsappClientOptions) {
     super();
 
     this.#logger = logger;
     this.#mediaMaxBytes = mediaMaxBytes;
     // LocalAuth's userDataDir when no clientId is set.
-    this.#chromiumProfileDir = join(dataDir, 'auth', 'session');
+    this.#chromiumProfileDir = join(DATA_DIR, 'auth', 'session');
     this.#client = new Client({
-      authStrategy: new LocalAuth({ dataPath: join(dataDir, 'auth') }),
-      webVersionCache: { type: 'local', path: join(dataDir, 'cache') },
+      authStrategy: new LocalAuth({ dataPath: join(DATA_DIR, 'auth') }),
+      webVersionCache: { type: 'local', path: join(DATA_DIR, 'cache') },
       puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] },
     });
 

@@ -10,7 +10,7 @@ const env = loadEnv();
 const logger = pino({ level: env.LOG_LEVEL, errorKey: 'error' });
 const mediaMaxBytes = env.MEDIA_MAX_SIZE * 1024 * 1024;
 
-const client = new WhatsappClient({ dataDir: env.DATA_DIR, mediaMaxBytes, logger });
+const client = new WhatsappClient({ mediaMaxBytes, logger });
 
 const dispatcher = createWebhookDispatcher({
   webhookUrl: env.WEBHOOK_URL,

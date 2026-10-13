@@ -15,7 +15,8 @@ COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/flue/package.json packages/flue/package.json
 
-RUN npm ci --workspace apps/gateway --include-workspace-root
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --workspace apps/gateway --include-workspace-root
 
 COPY tsconfig.json tsconfig.build.json ./
 COPY packages/protocol packages/protocol
@@ -50,13 +51,18 @@ COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/flue/package.json packages/flue/package.json
 
-RUN npm ci --omit=dev --omit=optional --workspace apps/gateway --include-workspace-root
+# The cache mount also keeps npm's download cache (~17 MB) out of the final image.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev --omit=optional --workspace apps/gateway --include-workspace-root
 
 COPY --from=build /whappr/packages/protocol/dist packages/protocol/dist
 COPY --from=build /whappr/apps/gateway/dist apps/gateway/dist
 COPY apps/gateway/public apps/gateway/public
 
-RUN chown -R node:node apps/gateway
+# Pre-create data/ so an empty named volume mounted there inherits node ownership (Docker seeds it
+# from the image). Without it the volume is root-owned and LocalAuth can't write the session.
+RUN mkdir apps/gateway/data \
+    && chown -R node:node apps/gateway
 
 USER node
 
