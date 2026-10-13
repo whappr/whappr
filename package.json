@@ -19,7 +19,8 @@
     "build": "npm run build --workspaces",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "check:types": "tsc --noEmit"
+    "check:types": "tsc --noEmit",
+    "postinstall": "patch-package --error-on-fail"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
@@ -29,8 +30,13 @@
     "typescript": "^7.0.2"
   },
   "allowScripts": {
-    "puppeteer": true,
-    "esbuild@0.28.2": true,
-    "fsevents@2.3.3": true
+    "puppeteer": false,
+    "esbuild": true,
+    "fsevents": true,
+    "@google/genai": true,
+    "protobufjs": true
+  },
+  "dependencies": {
+    "patch-package": "8.0.1"
   }
 }

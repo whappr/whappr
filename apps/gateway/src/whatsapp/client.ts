@@ -6,7 +6,6 @@ import type { AnyWhapprEvent, Message, SendMessageRequest, SessionState } from '
 import type { Logger } from 'pino';
 import qrcode from 'qrcode';
 import wwebjs from 'whatsapp-web.js';
-import { restoreSerializedMsgKeysInPage } from './compat.js';
 import { WhatsappError } from './errors.js';
 import { loadOutgoingMedia, mediaTooLargeError } from './media.js';
 import {
@@ -347,14 +346,9 @@ export class WhatsappClient extends EventEmitter<{ event: [event: AnyWhapprEvent
     });
 
     client.on('ready', () => {
-      void restoreSerializedMsgKeysInPage(client)
-        .catch((error) =>
-          this.#logger.error({ error }, 'failed to patch WhatsApp Web message keys'),
-        )
-        .then(() => this.#resolveMe())
-        .finally(() => {
-          this.#state = { status: 'ready', qr: null };
-        });
+      void this.#resolveMe().finally(() => {
+        this.#state = { status: 'ready', qr: null };
+      });
     });
 
     client.on('auth_failure', (message) => {

@@ -14,6 +14,8 @@ COPY apps/gateway/package.json apps/gateway/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/flue/package.json packages/flue/package.json
+# Applied to node_modules by the root `postinstall` (patch-package) during `npm ci`.
+COPY patches patches
 
 RUN --mount=type=cache,target=/root/.npm \
     npm ci --workspace apps/gateway --include-workspace-root
@@ -50,6 +52,7 @@ COPY apps/gateway/package.json apps/gateway/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/client/package.json packages/client/package.json
 COPY packages/flue/package.json packages/flue/package.json
+COPY patches patches
 
 # The cache mount also keeps npm's download cache (~17 MB) out of the final image.
 RUN --mount=type=cache,target=/root/.npm \

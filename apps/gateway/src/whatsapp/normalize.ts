@@ -91,10 +91,11 @@ function serializeId(value: unknown): string | undefined {
  * rather than returning `undefined`, so no event or response ever goes out without its id.
  *
  * WhatsApp Web's July 2026 update renamed `_serialized` to `$1`, which whatsapp-web.js 1.34.7
- * doesn't know about. `compat.ts` restores `_serialized` on `Message` ids. Reaction keys
- * (`Reaction.msgId`) aren't covered by it, so this also reads `$1` directly.
+ * doesn't know about. Our patch (`patches/whatsapp-web.js+1.34.7.patch`) restores `_serialized`
+ * on `Message` ids, but not on reaction keys (`Reaction.msgId`, which upstream doesn't normalize
+ * either), so this also reads `$1` directly.
  *
- * REMOVE the `$1` fallback with the `compat.ts` patch, once whatsapp-web.js ships the fix.
+ * REMOVE the `$1` fallback once whatsapp-web.js normalizes `Reaction.msgId`.
  */
 function messageIdOf(key: wwebjs.MessageId): string {
   const { $1 } = key as { $1?: unknown };
