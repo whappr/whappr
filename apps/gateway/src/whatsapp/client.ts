@@ -6,6 +6,7 @@ import type { AnyWhapprEvent, Message, SendMessageRequest, SessionState } from '
 import type { Logger } from 'pino';
 import qrcode from 'qrcode';
 import wwebjs from 'whatsapp-web.js';
+import './compat.js';
 import { WhatsappError } from './errors.js';
 import { loadOutgoingMedia, mediaTooLargeError } from './media.js';
 import {

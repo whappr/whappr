@@ -10,6 +10,7 @@ import type {
   ReplyContext,
 } from '@whappr/protocol';
 import wwebjs from 'whatsapp-web.js';
+import { WhatsappError } from './errors.js';
 
 const { MessageTypes } = wwebjs;
 type WwebMessage = wwebjs.Message;
@@ -85,6 +86,23 @@ function serializeId(value: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * The serialized id of a whatsapp-web.js message key, e.g. `false_123@lid_3EB0ABC`. Throws
+ * rather than returning `undefined`, so no event or response ever goes out without its id.
+ *
+ * WhatsApp Web's July 2026 update renamed `_serialized` to `$1`, which whatsapp-web.js 1.34.7
+ * doesn't know about. `compat.ts` restores `_serialized` on `Message` ids. Reaction keys
+ * (`Reaction.msgId`) aren't covered by it, so this also reads `$1` directly.
+ *
+ * REMOVE the `$1` fallback with the `compat.ts` patch, once whatsapp-web.js ships the fix.
+ */
+function messageIdOf(key: wwebjs.MessageId): string {
+  const { $1 } = key as { $1?: unknown };
+  const id = optionalString(key._serialized) ?? optionalString($1);
+  if (!id) throw new WhatsappError('WhatsApp returned a message without an id', 'OPERATION_FAILED');
+  return id;
+}
+
 function senderOf(message: WwebMessage, me: Me): Participant {
   if (message.fromMe) return { id: me.id, name: me.name, isMe: true };
   return {
@@ -116,7 +134,7 @@ async function replyContextOf(message: WwebMessage, me: Me): Promise<ReplyContex
   const quoted = await message.getQuotedMessage().catch(() => undefined);
   if (!quoted) return undefined;
   return {
-    id: quoted.id._serialized,
+    id: messageIdOf(quoted.id),
     sender: senderOf(quoted, me),
     text: textOf(quoted, kindOf(quoted) ?? 'unsupported'),
   };
@@ -133,7 +151,7 @@ export async function toMessage(message: WwebMessage, me: Me): Promise<Message |
     .filter((id) => id !== undefined);
 
   const base = {
-    id: message.id._serialized,
+    id: messageIdOf(message.id),
     chat,
     sender: senderOf(message, me),
     timestamp: new Date(message.timestamp * 1000).toISOString(),
@@ -172,7 +190,7 @@ export function toEditedData(
   const chat = chatOf(message);
   if (!chat) return null;
   return {
-    messageId: message.id._serialized,
+    messageId: messageIdOf(message.id),
     chat,
     sender: senderOf(message, me),
     text,
@@ -183,7 +201,7 @@ export function toEditedData(
 export function toDeletedData(message: WwebMessage, me: Me): MessageDeletedData | null {
   const chat = chatOf(message);
   if (!chat) return null;
-  return { messageId: message.id._serialized, chat, sender: senderOf(message, me) };
+  return { messageId: messageIdOf(message.id), chat, sender: senderOf(message, me) };
 }
 
 /** An empty `emoji` means the reaction was removed. */
@@ -192,7 +210,7 @@ export function toReactionData(reaction: WwebReaction, me: Me): ReactionAddedDat
   if (!chat) return null;
   const isMe = reaction.id.fromMe;
   return {
-    messageId: reaction.msgId._serialized,
+    messageId: messageIdOf(reaction.msgId),
     chat,
     sender: isMe ? { id: me.id, name: me.name, isMe } : { id: reaction.senderId, isMe },
     emoji: reaction.reaction,
