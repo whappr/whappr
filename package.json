@@ -22,6 +22,9 @@
     "check:types": "tsc --noEmit",
     "postinstall": "patch-package --error-on-fail"
   },
+  "dependencies": {
+    "patch-package": "^8.0.1"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
     "@changesets/cli": "^3.0.3",
@@ -30,13 +33,10 @@
     "typescript": "^7.0.2"
   },
   "allowScripts": {
-    "puppeteer": false,
+    "puppeteer": true,
     "esbuild": true,
     "fsevents": true,
     "@google/genai": true,
     "protobufjs": true
-  },
-  "dependencies": {
-    "patch-package": "8.0.1"
   }
 }
