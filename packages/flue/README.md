@@ -7,6 +7,9 @@
 
 Flue channel for the Whappr WhatsApp gateway.
 
+> Whappr is under active development. Until v1 is released, any update may include breaking changes. It is
+> recommended to pin exact versions.
+
 Connects your [Flue](https://flueframework.com) agents to WhatsApp. It verifies the gateway's signed
 webhooks and hands you each event to dispatch to your agents. Built on Web APIs only, so it runs on Node and
 edge runtimes.

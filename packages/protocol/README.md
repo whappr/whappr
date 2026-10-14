@@ -7,6 +7,9 @@
 
 Shared types and webhook signing for Whappr.
 
+> Whappr is under active development. Until v1 is released, any update may include breaking changes. It is
+> recommended to pin exact versions.
+
 The wire contract of the [Whappr Gateway](https://github.com/whappr/whappr/tree/main/apps/gateway):
 TypeScript types for every webhook event and every API request and response, plus the webhook signing
 helpers shared by the gateway and its clients. No dependencies; runs on Node, browsers and edge runtimes.

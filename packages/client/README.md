@@ -7,6 +7,9 @@
 
 Typed client for the Whappr WhatsApp gateway.
 
+> Whappr is under active development. Until v1 is released, any update may include breaking changes. It is
+> recommended to pin exact versions.
+
 Lets your AI agent send WhatsApp messages, media, reactions and typing indicators. Built on Web APIs only,
 so it runs on Node and edge runtimes.
 

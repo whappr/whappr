@@ -6,6 +6,9 @@
 
 Self-hosted WhatsApp gateway for AI agents.
 
+> Whappr is under active development. Until v1 is released, any update may include breaking changes. It is
+> recommended to pin exact versions.
+
 Links to your WhatsApp account, sends every incoming message to your agent as a signed webhook, and lets
 your agent reply through a small REST API. Built on [whatsapp-web.js](https://wwebjs.dev/) and
 [Hono](https://hono.dev/), shipped as a Docker image.

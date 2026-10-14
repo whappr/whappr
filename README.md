@@ -8,6 +8,9 @@
 
 WhatsApp gateway for AI agents.
 
+> Whappr is under active development. Until v1 is released, any update may include breaking changes. It is
+> recommended to pin exact versions.
+
 Give your agent a WhatsApp number. The [Whappr Gateway](https://github.com/whappr/whappr/tree/main/apps/gateway)
 is a self-hosted Docker container that links to your WhatsApp account. It sends every incoming message to your
 agent as a signed webhook, and your agent replies through a small REST API.
