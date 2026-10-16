@@ -199,7 +199,11 @@ route on `data.chat.id` regardless of the event type.
 
 A message carries `id`, `chat`, `sender` (`{ id, name?, isMe }`), `timestamp` (ISO 8601), `kind` (`text`,
 `image`, `video`, `audio`, `voice`, `document`, `sticker`, `location`, `contact` or `unsupported`), `text`
-(the body, or a media caption), `replyTo` (the quoted message, if any), `mentions` and `mentionsMe`.
+(the body, or a media caption), `replyTo` (the quoted message, if any), `mentions` (the @-mentioned
+participants, `{ id, name?, isMe }` each) and `mentionsMe` (whether one of them is the paired account).
+A mention's `name` is the contact's name as saved by the paired account, or else their own display name.
+In `text`, WhatsApp writes each mention as `@` plus the part of its `id` before the `@` (`@40712345678`
+for `40712345678@c.us`).
 Kind-specific fields: `media` (`{ mimeType, fileName?, size?, duration? }`; download the file itself with
 `GET /api/messages/:id/media`), `location` and `contacts`.
 

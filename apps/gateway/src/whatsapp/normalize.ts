@@ -141,15 +141,34 @@ async function replyContextOf(message: WwebMessage, me: Me): Promise<ReplyContex
   };
 }
 
+// `id` stays exactly as WhatsApp sent it (never swapped for the phone id of a `@lid`): consumers
+// find the mention in `text` by its user part. Not `message.getMentions()`: it looks every mention
+// up in one `Promise.all`, so a single failed lookup would lose all the names. A name is optional,
+// so any failure just leaves it out.
+async function mentionOf(message: WwebMessage, id: string, me: Me): Promise<Participant> {
+  if (me.ids.has(id)) return { id, name: me.name, isMe: true };
+  // Every whatsapp-web.js structure carries its `client`, but the typings leave it out.
+  const { client } = message as unknown as { client: wwebjs.Client };
+  const contact = await client.getContactById(id).catch(() => undefined);
+  return {
+    id,
+    name: optionalString(contact?.name) ?? optionalString(contact?.pushname),
+    isMe: false,
+  };
+}
+
 /** `null` when the message isn't user content or belongs to an out-of-scope conversation. */
 export async function toMessage(message: WwebMessage, me: Me): Promise<Message | null> {
   const chat = chatOf(message);
   const kind = kindOf(message);
   if (!chat || !kind) return null;
 
-  const mentions = message.mentionedIds
-    .map((id: unknown) => serializeId(id))
-    .filter((id) => id !== undefined);
+  const mentions = await Promise.all(
+    message.mentionedIds
+      .map((id: unknown) => serializeId(id))
+      .filter((id) => id !== undefined)
+      .map((id) => mentionOf(message, id, me)),
+  );
 
   const base = {
     id: messageIdOf(message.id),
@@ -159,7 +178,7 @@ export async function toMessage(message: WwebMessage, me: Me): Promise<Message |
     text: textOf(message, kind),
     replyTo: await replyContextOf(message, me),
     mentions,
-    mentionsMe: mentions.some((id) => me.ids.has(id)),
+    mentionsMe: mentions.some((mention) => mention.isMe),
   };
 
   switch (kind) {

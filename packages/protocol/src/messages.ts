@@ -73,8 +73,14 @@ interface MessageBase {
   /** Body for `text`, caption for media. */
   text?: string;
   replyTo?: ReplyContext;
-  /** Ids of the participants @-mentioned in `text`. Always empty outside groups. */
-  mentions: string[];
+  /**
+   * The participants @-mentioned in `text`. Always empty outside groups. WhatsApp writes each
+   * one in `text` as `@` plus the part of `id` before the `@` (`@40712345678` for
+   * `40712345678@c.us`), so replace that token with the `name` before showing `text` to anyone.
+   * `name` is the contact's name as saved by the paired account, or else their own display name,
+   * when either is known.
+   */
+  mentions: Participant[];
   /** `true` when the paired account is among `mentions`. */
   mentionsMe: boolean;
 }
