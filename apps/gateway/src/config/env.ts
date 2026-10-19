@@ -8,21 +8,27 @@ const splitList = (value: string) =>
     .map((entry) => entry.trim())
     .filter((entry) => entry !== '');
 
-// A chat id or a phone number, which becomes its `@c.us` id. Unlike `to` on POST /api/messages,
-// the number isn't looked up, so it must be written the way WhatsApp spells it in chat ids.
-const chatIdEntry = z
-  .string()
-  .refine(
-    (entry) =>
-      entry.includes('@')
-        ? /^[^@\s]+@(c\.us|g\.us|lid)$/.test(entry)
-        : /^\+?[\d\s-]*\d[\d\s-]*$/.test(entry),
-    {
-      error: (issue) =>
-        `"${issue.input}" must be a chat id (…@c.us, …@g.us, …@lid) or a phone number`,
-    },
-  )
-  .transform((entry) => (entry.includes('@') ? entry : `${entry.replace(/\D/g, '')}@c.us`));
+// An id ending in one of `suffixes`, or a phone number, which becomes its `@c.us` id. Unlike `to`
+// on POST /api/messages, the number isn't looked up, so it must be written the way WhatsApp spells
+// it in ids.
+const idEntry = (kind: string, suffixes: readonly string[]) =>
+  z
+    .string()
+    .refine(
+      (entry) =>
+        entry.includes('@')
+          ? /^[^@\s]+@[^@\s]+$/.test(entry) && suffixes.some((s) => entry.endsWith(`@${s}`))
+          : /^\+?[\d\s-]*\d[\d\s-]*$/.test(entry),
+      {
+        error: (issue) =>
+          `"${issue.input}" must be a ${kind} id (${suffixes.map((s) => `…@${s}`).join(', ')}) or a phone number`,
+      },
+    )
+    .transform((entry) => (entry.includes('@') ? entry : `${entry.replace(/\D/g, '')}@c.us`));
+
+const chatIdEntry = idEntry('chat', ['c.us', 'g.us', 'lid']);
+// A group is never a sender.
+const senderIdEntry = idEntry('sender', ['c.us', 'lid']);
 
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
@@ -48,6 +54,14 @@ const envSchema = z.object({
     .default('')
     .transform(splitList)
     .pipe(z.array(chatIdEntry))
+    .transform((entries) => new Set(entries)),
+  // Comma-separated sender ids or phone numbers to POST events for, in any chat (direct or group),
+  // kept as ids. Unset or empty means every sender, kept as an empty set like WEBHOOK_CHAT_IDS.
+  WEBHOOK_SENDER_IDS: z
+    .string()
+    .default('')
+    .transform(splitList)
+    .pipe(z.array(senderIdEntry))
     .transform((entries) => new Set(entries)),
   // Megabytes.
   MEDIA_MAX_SIZE: z.coerce.number().int().positive().default(64),

@@ -18,6 +18,7 @@ const dispatcher = createWebhookDispatcher({
   filter: createWebhookFilter({
     eventTypes: env.WEBHOOK_EVENT_TYPES,
     chatIds: env.WEBHOOK_CHAT_IDS,
+    senderIds: env.WEBHOOK_SENDER_IDS,
     client,
     logger,
   }),
