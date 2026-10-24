@@ -102,9 +102,9 @@ curl -X POST http://localhost:3000/api/messages \
 | `WEBHOOK_URL` | Required. Where events are sent (see [Webhook events](#webhook-events)). |
 | `PORT` | HTTP port (default `3000`). |
 | `LOG_LEVEL` | Log verbosity: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (default `info`). |
-| `WEBHOOK_EVENT_TYPES` | Comma-separated event types to send, e.g. `message.received,reaction.added` (default: all). |
-| `WEBHOOK_CHAT_IDS` | Comma-separated chats to send events for: phone numbers or chat ids, e.g. `40712345678,120363…@g.us` (default: all). See [Filtering events](#filtering-events). |
-| `WEBHOOK_SENDER_IDS` | Comma-separated senders to send events for, in direct and group chats: phone numbers or sender ids, e.g. `40712345678,…@lid` (default: all). Group events have no sender and aren't affected. See [Filtering events](#filtering-events). |
+| `FILTER_EVENT_TYPES` | Comma-separated event types to send, e.g. `message.received,reaction.added` (default: all). |
+| `FILTER_CHAT_IDS` | Comma-separated chats to send events for: phone numbers or chat ids, e.g. `40712345678,120363…@g.us` (default: all). See [Filtering events](#filtering-events). |
+| `FILTER_SENDER_IDS` | Comma-separated senders to send events for, in direct and group chats: phone numbers or sender ids, e.g. `40712345678,…@lid` (default: all). Group events have no sender and aren't affected. See [Filtering events](#filtering-events). |
 | `MEDIA_MAX_SIZE` | Largest file, in megabytes, the gateway sends or downloads (default `64`). Files pass through the browser in memory as base64. Doesn't affect webhooks, which only carry media metadata. |
 | `DEVICE_NAME` | The name WhatsApp shows for the gateway under Linked devices, set when pairing (default: whatsapp-web.js's own). |
 
@@ -257,19 +257,19 @@ Bot commands (`/subscribe daily`) are plain `message.received` text: parse `data
 
 ### Filtering events
 
-Set `WEBHOOK_EVENT_TYPES` to receive only some event types, `WEBHOOK_CHAT_IDS` to receive only some
-conversations, and `WEBHOOK_SENDER_IDS` to receive only some senders. An event is sent when it passes all
-three, so `WEBHOOK_CHAT_IDS=120363…@g.us` with `WEBHOOK_SENDER_IDS=40712345678` sends only that person's
+Set `FILTER_EVENT_TYPES` to receive only some event types, `FILTER_CHAT_IDS` to receive only some
+conversations, and `FILTER_SENDER_IDS` to receive only some senders. An event is sent when it passes all
+three, so `FILTER_CHAT_IDS=120363…@g.us` with `FILTER_SENDER_IDS=40712345678` sends only that person's
 events in that group. Filtered-out events never leave the gateway, but the API can still reach every chat.
 
-`WEBHOOK_CHAT_IDS` takes phone numbers in international format (`40712345678`), direct chat ids (`…@c.us`,
+`FILTER_CHAT_IDS` takes phone numbers in international format (`40712345678`), direct chat ids (`…@c.us`,
 `…@lid`) and group chat ids (`…@g.us`). A phone number or `@c.us` id also matches the chat when WhatsApp
 addresses it by its privacy id (`…@lid`). Phone numbers aren't looked up, so write them as they appear in
 `@c.us` ids. To find a chat id, run with `LOG_LEVEL=debug`: every event skipped for its chat is logged with
 its `chatId`.
 
-`WEBHOOK_SENDER_IDS` matches `sender.id`, in direct and group chats alike. Group events have no sender, so
-it doesn't filter them: use `WEBHOOK_EVENT_TYPES` and `WEBHOOK_CHAT_IDS` for those. It takes phone numbers and sender
+`FILTER_SENDER_IDS` matches `sender.id`, in direct and group chats alike. Group events have no sender, so
+it doesn't filter them: use `FILTER_EVENT_TYPES` and `FILTER_CHAT_IDS` for those. It takes phone numbers and sender
 ids (`…@c.us`, `…@lid`), and matches `@lid` senders the same way. In groups WhatsApp often names senders by
 `@lid`, so list their phone number or `@c.us` id. Events skipped for their sender are logged at `debug` with
 their `senderId`. Your own reactions, edits and deletions have you as sender, so list your own number to keep

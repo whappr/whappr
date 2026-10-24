@@ -10,13 +10,13 @@ import type { Whatsapp } from '../whatsapp/index.js';
  * so an unlisted `@lid` chat or sender is matched by its phone-based id too. Never rejects.
  */
 export function createWebhookFilter(
-  config: ConfigService<'webhookEventTypes' | 'webhookChatIds' | 'webhookSenderIds'>,
+  config: ConfigService<'filterEventTypes' | 'filterChatIds' | 'filterSenderIds'>,
   logger: Logger,
   whatsapp: Pick<Whatsapp, 'phoneIdOf'>,
 ): (event: AnyWhapprEvent) => Promise<boolean> {
-  const eventTypes = config.get('webhookEventTypes');
-  const chatIds = config.get('webhookChatIds');
-  const senderIds = config.get('webhookSenderIds');
+  const eventTypes = config.get('filterEventTypes');
+  const chatIds = config.get('filterChatIds');
+  const senderIds = config.get('filterSenderIds');
   // Only hits are cached, so an id WhatsApp doesn't know yet is looked up again next time.
   const phoneIds = new Map<string, string>();
 

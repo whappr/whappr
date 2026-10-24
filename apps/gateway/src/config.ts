@@ -40,7 +40,7 @@ const envSchema = z.object({
     .regex(/^[A-Za-z0-9._~+/-]+=*$/, 'SECRET_KEY may only contain letters, digits and ._~+/-'),
   WEBHOOK_URL: z.url('WEBHOOK_URL must be a valid URL'),
   // Comma-separated event types to POST to the webhook. Unset or empty means all of them.
-  WEBHOOK_EVENT_TYPES: z
+  FILTER_EVENT_TYPES: z
     .string()
     .default('')
     .transform(splitList)
@@ -49,15 +49,15 @@ const envSchema = z.object({
   // Comma-separated chat ids or phone numbers to POST events for, kept as chat ids. Unset or empty
   // means every chat, kept as an empty set since, unlike event types, the full list can't be
   // spelled out.
-  WEBHOOK_CHAT_IDS: z
+  FILTER_CHAT_IDS: z
     .string()
     .default('')
     .transform(splitList)
     .pipe(z.array(chatIdEntry))
     .transform((entries) => new Set(entries)),
   // Comma-separated sender ids or phone numbers to POST events for, in any chat (direct or group),
-  // kept as ids. Unset or empty means every sender, kept as an empty set like WEBHOOK_CHAT_IDS.
-  WEBHOOK_SENDER_IDS: z
+  // kept as ids. Unset or empty means every sender, kept as an empty set like FILTER_CHAT_IDS.
+  FILTER_SENDER_IDS: z
     .string()
     .default('')
     .transform(splitList)
@@ -79,11 +79,11 @@ const configSchema = envSchema.transform((env) => ({
   logLevel: env.LOG_LEVEL,
   secretKey: env.SECRET_KEY,
   webhookUrl: env.WEBHOOK_URL,
-  webhookEventTypes: env.WEBHOOK_EVENT_TYPES as ReadonlySet<WhapprEventType>,
+  filterEventTypes: env.FILTER_EVENT_TYPES as ReadonlySet<WhapprEventType>,
   /** Chat ids (`@c.us`, `@g.us`, `@lid`). Empty means every chat. */
-  webhookChatIds: env.WEBHOOK_CHAT_IDS as ReadonlySet<string>,
+  filterChatIds: env.FILTER_CHAT_IDS as ReadonlySet<string>,
   /** Sender ids (`@c.us`, `@lid`). Empty means every sender. */
-  webhookSenderIds: env.WEBHOOK_SENDER_IDS as ReadonlySet<string>,
+  filterSenderIds: env.FILTER_SENDER_IDS as ReadonlySet<string>,
   mediaMaxBytes: env.MEDIA_MAX_SIZE * 1024 * 1024,
   /** The name WhatsApp shows for the gateway under Linked devices. */
   deviceName: env.DEVICE_NAME,
