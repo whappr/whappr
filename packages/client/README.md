@@ -47,7 +47,7 @@ Voice notes arrive as `kind: 'voice'`. Download them to transcribe:
 
 ```ts
 if (event.type === 'message.received' && event.data.kind === 'voice') {
-  const audio = await client.messages.media.download(event.data.id);
+  const audio = await client.messages.downloadMedia(event.data.id);
   const form = new FormData();
   form.append('file', audio, 'voice.ogg'); // e.g. for a speech-to-text API
 }
@@ -73,9 +73,24 @@ const client = createWhapprClient({
 });
 ```
 
+Every method also takes per-call options as its last argument:
+
+| Option | Description |
+|---|---|
+| `signal` | An `AbortSignal` that cancels the call, which then throws `WhapprAbortError`. |
+| `timeoutMs` | Overrides the client's `timeoutMs` for this call, e.g. to send or download a large file. |
+
+```ts
+await client.messages.downloadMedia(messageId, { timeoutMs: 60_000, signal: request.signal });
+```
+
 ## API
 
 Every method returns a `Promise` that rejects with a `WhapprClientError` on failure. See [Errors](#errors).
+
+Method names follow the HTTP route they call: `get` / `list` read, `send` creates, `edit` changes, `delete`
+deletes, and an action route (`POST …/leave`) gets its verb. Ids come first, then the request body, then
+the [per-call options](#options).
 
 Methods that return a message return the same normalized `Message` that webhook events carry. Every type of
 the [wire contract](https://github.com/whappr/whappr/tree/main/packages/protocol) (`Message`,
@@ -83,18 +98,20 @@ the [wire contract](https://github.com/whappr/whappr/tree/main/packages/protocol
 
 ### Health
 
-**`client.health()`** — Unauthenticated liveness check. Resolves with `{ ok, version, session, webhook }` if
-the gateway is up, throws otherwise, including a `WhapprApiError` with status `503` once the session is `failed`. `webhook` is the most recent delivery since the gateway started (`{ at, ok, status? }`), or
+**`client.health()`** — Unauthenticated liveness check. Resolves with `{ ok, version, session, webhook }`
+whenever the gateway answers, with `ok: false` once the session is `failed`, and throws if it can't be
+reached. `webhook` is the most recent delivery since the gateway started (`{ at, ok, status? }`), or
 `null` before the first, so you can tell whether your receiver is getting events:
 
 ```ts
-const { version, webhook } = await client.health();
+const { ok, version, webhook } = await client.health();
+if (!ok) console.error(`gateway ${version} is unhealthy`);
 if (webhook && !webhook.ok) console.warn(`webhook failing: ${webhook.status ?? 'no response'}`);
 ```
 
 ### Session
 
-**`client.session.status()`** — Reads the current WhatsApp session state (`starting`, `awaiting_scan`,
+**`client.session.get()`** — Reads the current WhatsApp session state (`starting`, `awaiting_scan`,
 `ready`, `failed` or `disconnected`), including the pairing QR code while awaiting a scan and the paired
 account (`id`, `phone`, `name`) once ready.
 
@@ -121,15 +138,24 @@ await client.messages.send({ to, media: { data: base64Audio, mimeType: 'audio/og
 ```
 
 Large files can take longer than the client's `timeoutMs`; pass `{ timeoutMs }` as `options` to extend it
-for one call. A timeout means the gateway didn't answer in time, not that the message wasn't sent. Check
-before retrying, or you may send it twice.
+for one call. A timeout means the gateway didn't answer in time, not that the message wasn't sent. To
+retry safely, pass an `idempotencyKey`: the gateway sends one message per key for 24 hours and answers
+a repeat with the message it already sent. Deriving the key from the event you reply to also keeps the
+reply from being sent twice if you process that event again, e.g. after a crash:
+
+```ts
+await client.messages.send(
+  { to: event.data.chat.id, text: reply, replyTo: event.data.id },
+  { idempotencyKey: `reply:${event.data.id}` },
+);
+```
 
 **`client.messages.edit(messageId, { text })`** — Edits the text of a message you previously sent. Throws
 `EDIT_NOT_ALLOWED` if WhatsApp no longer permits editing it (e.g. too old).
 
 **`client.messages.delete(messageId)`** — Deletes a message for everyone.
 
-**`client.messages.media.download(messageId, options?)`** — Downloads a message's file as a `Blob`
+**`client.messages.downloadMedia(messageId, options?)`** — Downloads a message's file as a `Blob`
 (`blob.type` is its MIME type; the file name, if any, is in the event's `media.fileName`). Throws
 `MEDIA_NOT_FOUND`, `MEDIA_UNAVAILABLE` (WhatsApp no longer serves it) or `MEDIA_TOO_LARGE` (over the
 gateway's `MEDIA_MAX_SIZE`).
@@ -152,14 +178,37 @@ the indicator never fails `task`.
 
 **`client.chats.markAsRead(chatId)`** — Marks the chat's messages as read (blue ticks).
 
+**`client.chats.delete(chatId)`** — Deletes the chat and its history on the paired account only. A group's
+chat can only be deleted once the account left it, e.g. after being removed: throws `STILL_IN_GROUP` while
+it's a member.
+
+### Groups
+
+Every `groups.*` call takes a group chat id (`…@g.us`), and throws `CHAT_NOT_FOUND` for anything else.
+
+**`client.groups.list(options?)`** — The groups the account is a member of, as `{ id, name }`.
+Slow on accounts with many groups, since the gateway refreshes each one from WhatsApp. Pass
+`{ timeoutMs }` to extend the client's timeout for this call.
+
+**`client.groups.get(groupId)`** — The group with its `participants` (`{ id, phone?, lid?, name?, isMe, isAdmin }`).
+Throws `CHAT_NOT_FOUND` for a group the account isn't in.
+
+**`client.groups.leave(groupId, { deleteChat? })`** — Leaves the group. Set `deleteChat: true` to also
+delete its chat and history on the paired account. Throws `CHAT_NOT_FOUND` for a group the account isn't in.
+
+To delete the chat of a group the account already left, use `client.chats.delete(groupId)`. Deleting only
+ever affects the paired account: the group and its history stay for the other members.
+
 ## Errors
 
 Every failure extends `WhapprClientError`, so one `catch` handles them all. You can also narrow to a
 specific subclass:
 
-- `WhapprApiError` — the gateway returned an error response; check `.status` and `.code` (e.g. `NOT_READY`)
+- `WhapprApiError` — the gateway returned an error response; check `.status` and `.code` (e.g. `NOT_READY`).
+  `.requestId` is the id the gateway's logs carry for the request.
 - `WhapprNetworkError` — the request couldn't reach the gateway
 - `WhapprTimeoutError` — the request timed out
+- `WhapprAbortError` — the call was cancelled through its `signal`
 - `WhapprParseError` — the gateway returned a malformed response
 
 ```ts
@@ -169,7 +218,7 @@ try {
   await client.messages.send({ to: '1555123456', text: 'Hi' });
 } catch (error) {
   if (error instanceof WhapprApiError && error.code === 'NOT_READY') {
-    // session isn't connected yet, poll client.session.status()
+    // session isn't connected yet, poll client.session.get()
   } else if (error instanceof WhapprClientError) {
     // any other client/network/timeout failure
   } else {

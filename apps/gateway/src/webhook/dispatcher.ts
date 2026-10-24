@@ -7,6 +7,7 @@ import {
   WHAPPR_TIMESTAMP_HEADER,
 } from '@whappr/protocol';
 import type { Logger } from 'pino';
+import type { ConfigService } from '../config.js';
 
 const WEBHOOK_TIMEOUT_MS = 5000;
 
@@ -22,17 +23,17 @@ export interface WebhookDispatcher {
   last(): WebhookDelivery | null;
 }
 
-export function createWebhookDispatcher(opts: {
-  webhookUrl: string;
-  secret: string;
-  /**
-   * Resolves `true` to POST the event, `false` to drop it. Checked in delivery order, so an
-   * async check can't reorder events.
-   */
-  filter?: (event: AnyWhapprEvent) => Promise<boolean>;
-  logger: Logger;
-}): WebhookDispatcher {
-  const { webhookUrl, secret, filter, logger } = opts;
+/**
+ * `filter` resolves `true` to POST the event, `false` to drop it. Checked in delivery order, so an
+ * async check can't reorder events.
+ */
+export function createWebhookDispatcher(
+  config: ConfigService<'webhookUrl' | 'secretKey'>,
+  logger: Logger,
+  filter?: (event: AnyWhapprEvent) => Promise<boolean>,
+): WebhookDispatcher {
+  const webhookUrl = config.get('webhookUrl');
+  const secret = config.get('secretKey');
   let queue: Promise<void> = Promise.resolve();
   let last: WebhookDelivery | null = null;
 

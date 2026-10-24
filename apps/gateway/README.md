@@ -104,8 +104,9 @@ curl -X POST http://localhost:3000/api/messages \
 | `LOG_LEVEL` | Log verbosity: `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent` (default `info`). |
 | `WEBHOOK_EVENT_TYPES` | Comma-separated event types to send, e.g. `message.received,reaction.added` (default: all). |
 | `WEBHOOK_CHAT_IDS` | Comma-separated chats to send events for: phone numbers or chat ids, e.g. `40712345678,120363…@g.us` (default: all). See [Filtering events](#filtering-events). |
-| `WEBHOOK_SENDER_IDS` | Comma-separated senders to send events for, in direct and group chats: phone numbers or sender ids, e.g. `40712345678,…@lid` (default: all). See [Filtering events](#filtering-events). |
+| `WEBHOOK_SENDER_IDS` | Comma-separated senders to send events for, in direct and group chats: phone numbers or sender ids, e.g. `40712345678,…@lid` (default: all). Group events have no sender and aren't affected. See [Filtering events](#filtering-events). |
 | `MEDIA_MAX_SIZE` | Largest file, in megabytes, the gateway sends or downloads (default `64`). Files pass through the browser in memory as base64. Doesn't affect webhooks, which only carry media metadata. |
+| `DEVICE_NAME` | The name WhatsApp shows for the gateway under Linked devices, set when pairing (default: whatsapp-web.js's own). |
 
 ## API
 
@@ -140,6 +141,11 @@ Routes that return a message return it normalized, in the same shape webhook eve
   `to` is a chat id or a phone number in international format (`"1555123456"`); `replyTo` is the id of a
   message to quote. Without `media`, `text` is required; with it, `text` is the caption (dropped for audio,
   which WhatsApp can't caption). See [Sending media](#sending-media).
+
+  Send an `Idempotency-Key` header to make retries safe: the message is sent once per key for 24 hours.
+  Repeating the request with the same key answers with the message already sent (waiting for it if it's
+  still being sent), whatever the body. A failed send forgets the key so you can retry it. Keys are kept
+  in memory, at most the 10,000 most recent, so a restart forgets them.
 - `PATCH /api/messages/:id` — edit a message you sent. `{ text }` → `200 { message }`.
 - `DELETE /api/messages/:id` — delete a message for everyone. → `204`.
 - `GET /api/messages/:id/media` — download a message's file. → `200` with the raw bytes, `Content-Type`
@@ -175,6 +181,29 @@ Files are limited to `MEDIA_MAX_SIZE`, whichever way they're given.
   when a message is sent, so repeat it to keep it showing while your agent works.
 - `DELETE /api/chats/:chatId/typing` — clear it. → `204`.
 - `POST /api/chats/:chatId/read` — mark the chat's messages as read (blue ticks). → `204`.
+- `DELETE /api/chats/:chatId` — delete the chat and its history on the paired account only. → `204`.
+  A group's chat can only be deleted once the account left it (e.g. after being removed):
+  `STILL_IN_GROUP` while it's a member. Leave first, or leave with `deleteChat`.
+
+### Groups
+
+`ready`-only. `:groupId` is a group chat id (`…@g.us`); anything else answers `CHAT_NOT_FOUND`.
+
+- `GET /api/groups` — the groups the account is a member of. → `200 { groups: [{ id, name }] }`.
+  Slow on accounts with many groups, since each group is refreshed from WhatsApp.
+- `GET /api/groups/:groupId` — `200 { id, name, participants }`, each participant
+  `{ id, phone?, lid?, name?, isMe, isAdmin }`. `CHAT_NOT_FOUND` for a group the account isn't in.
+- `POST /api/groups/:groupId/leave` — leave the group. Optional body `{ deleteChat?: boolean }`: `true` also
+  deletes the group's chat and history on the paired account. → `204`, and a `group.left` event with
+  `reason: "left"`. `CHAT_NOT_FOUND` for a group the account isn't in.
+
+To delete the chat of a group the account already left, use `DELETE /api/chats/:chatId`. Deleting only
+ever affects the paired account: WhatsApp can't delete a group for everyone, and the group
+and its history stay for the other members.
+
+Anyone can add the account to a group, and WhatsApp offers no way to refuse. Deciding which groups to stay
+in is up to you: check `participants` on `group.joined` (or with `GET /api/groups/:groupId`) and
+leave the groups you don't want to be in.
 
 `GET /` serves the bundled pairing/status UI (`public/index.html`). It isn't part of the API.
 
@@ -193,22 +222,36 @@ route on `data.chat.id` regardless of the event type.
 | Type | `data` |
 |---|---|
 | `message.received` | A message someone else sent to the paired account. |
-| `message.edited` | `messageId`, `chat`, `sender`, `text`, `previousText`. |
+| `message.edited` | `messageId`, `chat`, `sender`, `text`, `previousText`, `mentions`, `mentionsMe` (for the new `text`). |
 | `message.deleted` | `messageId`, `chat`, `sender` — deleted for everyone. |
 | `reaction.added` | `messageId`, `chat`, `sender`, `emoji`. Also sent when a reaction is replaced. |
 | `reaction.removed` | `messageId`, `chat`, `sender`. |
+| `group.joined` | `chat`, `author?`, `participants` — the account was added to a group, or was a member when it was created. |
+| `group.left` | `chat`, `author?`, `reason` (`removed` or `left`) — an admin removed the account, or it left through the API. |
+| `group.participant.joined` | `chat`, `author?`, `participant` — someone else joined a group the account is in. |
+| `group.participant.left` | `chat`, `author?`, `participant`, `reason` (`left` or `removed`) — someone else left, or was removed. |
 
-A message carries `id`, `chat`, `sender` (`{ id, name?, isMe }`), `timestamp` (ISO 8601), `kind` (`text`,
+A message carries `id`, `chat`, `sender` (`{ id, phone?, lid?, name?, isMe }`), `timestamp` (ISO 8601), `kind` (`text`,
 `image`, `video`, `audio`, `voice`, `document`, `sticker`, `location`, `contact` or `unsupported`), `text`
 (the body, or a media caption), `replyTo` (the quoted message, if any), `mentions` (the @-mentioned
-participants, `{ id, name?, isMe }` each) and `mentionsMe` (whether one of them is the paired account).
+participants, `{ id, phone?, lid?, name?, isMe }` each) and `mentionsMe` (whether one of them is the paired account).
 A mention's `name` is the contact's name as saved by the paired account, or else their own display name.
 In `text`, WhatsApp writes each mention as `@` plus the part of its `id` before the `@` (`@40712345678`
 for `40712345678@c.us`).
 Kind-specific fields: `media` (`{ mimeType, fileName?, size?, duration? }`; download the file itself with
 `GET /api/messages/:id/media`), `location` and `contacts`.
 
+Group events carry people as `{ id, phone?, lid?, name?, isMe }`, without names except your own. `author` is whoever
+added or removed someone, when WhatsApp says. `participants` lists every member, you included. When several
+people are added or removed at once, each gets their own `group.participant.*` event. A change that includes
+you produces only your `group.joined` or `group.left`. Leaving a group from the phone (or another linked
+device) produces no `group.left`: WhatsApp doesn't notify it. Changes made while the gateway was stopped produce
+no events, and deliveries aren't retried: compare against `GET /api/groups` if you track membership.
+
 Ids (`chat.id`, `sender.id`, message ids) are opaque: store them and pass them back as-is.
+A person's `id` is the same in every event: phone-based (`…@c.us`) when WhatsApp knows their number,
+else their privacy id (`…@lid`). `phone` and `lid` carry whichever of the two WhatsApp knows. A mention's
+`id` is the exception: exactly as written in `text`.
 
 Bot commands (`/subscribe daily`) are plain `message.received` text: parse `data.text` in your handler.
 
@@ -225,7 +268,8 @@ addresses it by its privacy id (`…@lid`). Phone numbers aren't looked up, so w
 `@c.us` ids. To find a chat id, run with `LOG_LEVEL=debug`: every event skipped for its chat is logged with
 its `chatId`.
 
-`WEBHOOK_SENDER_IDS` matches `sender.id`, in direct and group chats alike. It takes phone numbers and sender
+`WEBHOOK_SENDER_IDS` matches `sender.id`, in direct and group chats alike. Group events have no sender, so
+it doesn't filter them: use `WEBHOOK_EVENT_TYPES` and `WEBHOOK_CHAT_IDS` for those. It takes phone numbers and sender
 ids (`…@c.us`, `…@lid`), and matches `@lid` senders the same way. In groups WhatsApp often names senders by
 `@lid`, so list their phone number or `@c.us` id. Events skipped for their sender are logged at `debug` with
 their `senderId`. Your own reactions, edits and deletions have you as sender, so list your own number to keep
@@ -255,7 +299,8 @@ Every error response is `{ error: { code, message } }`. Domain-specific codes:
 | `NOT_READY` | 503 | Session isn't `ready` yet. |
 | `NOT_AUTHENTICATED` | 409 | `POST /api/session/logout` called with no authenticated session. |
 | `RECIPIENT_NOT_FOUND` | 422 | The phone number in `to` isn't on WhatsApp. |
-| `CHAT_NOT_FOUND` | 404 | No such chat, or one the gateway doesn't handle (status updates, channels). |
+| `CHAT_NOT_FOUND` | 404 | No such chat, or one the gateway doesn't handle (status updates, channels). For `/api/groups`, also a group the account isn't in. |
+| `STILL_IN_GROUP` | 409 | `DELETE /api/chats/:chatId` on a group the account is still a member of. |
 | `MESSAGE_NOT_FOUND` | 404 | No message with that id (also for `replyTo`). |
 | `EDIT_NOT_ALLOWED` | 409 | WhatsApp no longer allows editing this message (e.g. too old). |
 | `MEDIA_NOT_FOUND` | 404 | The message has no file. |
@@ -273,9 +318,10 @@ same shape with a status-derived code, e.g. `UNAUTHORIZED`, `BAD_REQUEST`, `NOT_
 The gateway is not a full WhatsApp Web API. It exposes what a conversational agent needs:
 
 - **Supported** — direct and group chats; text, media, voice notes, locations and contacts in; text and
-  media out; replies, edits, deletes, reactions, typing indicator, read receipts and media downloads.
-- **Out of scope** — status updates, channels, broadcast lists, group and contact administration, polls,
-  payments and calls. Status updates, broadcast lists and channels are never forwarded. Other message types
+  media out; replies, edits, deletes, reactions, typing indicator, read receipts and media downloads;
+  group membership events, listing and leaving groups, and deleting group chats.
+- **Out of scope** — status updates, channels, broadcast lists, creating and administering groups, contact
+  administration, polls, payments and calls. Status updates, broadcast lists and channels are never forwarded. Other message types
   the gateway doesn't model (polls, payments, ...) arrive as `unsupported` instead of being dropped.
 
 ## Development

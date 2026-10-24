@@ -10,13 +10,21 @@ export interface Chat {
   type: ChatType;
 }
 
-/** Whoever authored a message or a reaction. */
+/**
+ * A person: whoever sent a message or a reaction, a group member, a mention. WhatsApp knows people
+ * by a phone-based id (`"1555123456@c.us"`), a privacy id (`"...@lid"`) that carries no phone
+ * number, or both: `phone` and `lid` carry whichever it knows.
+ */
 export interface Participant {
   /**
-   * Opaque id. Depending on the contact's privacy settings this is either phone-based
-   * (`"1555123456@c.us"`) or a privacy id (`"...@lid"`) that carries no phone number.
+   * Opaque id, the same for a person everywhere: phone-based when WhatsApp knows their phone number,
+   * else their privacy id. A mention's `id` is the exception: exactly as WhatsApp wrote it in `text`.
    */
   id: string;
+  /** Phone number in international format without `+` (e.g. `"1555123456"`), when WhatsApp knows it. */
+  phone?: string;
+  /** Privacy id (e.g. `"1234567890@lid"`), when WhatsApp knows it. */
+  lid?: string;
   /** The display name the user set for themselves, when WhatsApp provides one. */
   name?: string;
   /** `true` when this is the account the gateway is paired with. */

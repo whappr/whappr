@@ -114,9 +114,10 @@ verifies webhooks for you and dispatches them to your Flue agents.
 Whappr is not a full WhatsApp Web API. It exposes what a conversational agent needs:
 
 - **Supported** — direct and group chats; text, media, voice notes, locations and contacts in; text and
-  media out; replies, edits, deletes, reactions, typing indicator, read receipts and media downloads.
-- **Out of scope** — status updates, channels, broadcast lists, group and contact administration, polls,
-  payments and calls. Message types the gateway doesn't model still arrive as `unsupported` instead of
+  media out; replies, edits, deletes, reactions, typing indicator, read receipts and media downloads;
+  group membership events, listing and leaving groups, and deleting group chats.
+- **Out of scope** — status updates, channels, broadcast lists, creating and administering groups, contact
+  administration, polls, payments and calls. Message types the gateway doesn't model still arrive as `unsupported` instead of
   being dropped.
 
 ## Packages

@@ -1,6 +1,6 @@
 import type { MediaInput } from '@whappr/protocol';
 import wwebjs from 'whatsapp-web.js';
-import { WhatsappError } from './errors.js';
+import { mediaTooLargeError, WhatsappError } from './errors.js';
 
 const { MessageMedia } = wwebjs;
 
@@ -12,13 +12,6 @@ export type OutgoingMediaKind = 'image' | 'video' | 'audio' | 'voice' | 'documen
 export interface OutgoingMedia {
   media: wwebjs.MessageMedia;
   kind: OutgoingMediaKind;
-}
-
-export function mediaTooLargeError(maxBytes: number): WhatsappError {
-  return new WhatsappError(
-    `Media is over the ${maxBytes}-byte limit (MEDIA_MAX_SIZE)`,
-    'MEDIA_TOO_LARGE',
-  );
 }
 
 // WhatsApp renders a file by its MIME type; `as` only opts into a voice note or a document.

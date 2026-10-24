@@ -8,9 +8,11 @@ import type {
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
-import type { WhatsappClient } from '../../whatsapp/client.js';
-import { mediaTooLargeError } from '../../whatsapp/media.js';
+import type { ConfigService } from '../../config.js';
+import { mediaTooLargeError } from '../../whatsapp/errors.js';
+import type { Messages } from '../../whatsapp/messages.js';
 import type { AppEnv } from '../app.js';
+import { createIdempotency } from '../idempotency.js';
 import { validateBody } from '../middlewares.js';
 
 // Flat objects refined by hand rather than unions, so a bad request gets an error naming the
@@ -84,23 +86,32 @@ function contentDisposition(fileName: string | undefined): string {
   return `attachment; filename*=UTF-8''${encoded}`;
 }
 
-export function createMessagesRoute(client: WhatsappClient, mediaMaxBytes: number): Hono<AppEnv> {
+export function createMessagesRoute(
+  config: ConfigService<'mediaMaxBytes'>,
+  messages: Messages,
+): Hono<AppEnv> {
+  const mediaMaxBytes = config.get('mediaMaxBytes');
+  const withIdempotency = createIdempotency();
+
   return new Hono<AppEnv>()
     .post('/', sendBodyLimit(mediaMaxBytes), validateBody(sendMessageSchema), async (c) => {
-      const message = await client.sendMessage(c.req.valid('json'));
+      const request = c.req.valid('json');
+      const message = await withIdempotency(c.req.header('Idempotency-Key'), () =>
+        messages.send(request),
+      );
       return c.json({ message } satisfies MessageResponse, 201);
     })
     .patch('/:id', validateBody(editMessageSchema), async (c) => {
       const { text } = c.req.valid('json');
-      const message = await client.editMessage(c.req.param('id'), text);
+      const message = await messages.edit(c.req.param('id'), text);
       return c.json({ message } satisfies MessageResponse);
     })
     .delete('/:id', async (c) => {
-      await client.deleteMessage(c.req.param('id'));
+      await messages.delete(c.req.param('id'));
       return c.body(null, 204);
     })
     .get('/:id/media', async (c) => {
-      const { data, mimeType, fileName } = await client.downloadMedia(c.req.param('id'));
+      const { data, mimeType, fileName } = await messages.downloadMedia(c.req.param('id'));
       return c.body(data, 200, {
         'Content-Type': mimeType,
         'Content-Length': String(data.byteLength),
@@ -109,11 +120,11 @@ export function createMessagesRoute(client: WhatsappClient, mediaMaxBytes: numbe
     })
     .put('/:id/reaction', validateBody(setReactionSchema), async (c) => {
       const { emoji } = c.req.valid('json');
-      await client.reactToMessage(c.req.param('id'), emoji);
+      await messages.react(c.req.param('id'), emoji);
       return c.body(null, 204);
     })
     .delete('/:id/reaction', async (c) => {
-      await client.reactToMessage(c.req.param('id'), '');
+      await messages.unreact(c.req.param('id'));
       return c.body(null, 204);
     });
 }

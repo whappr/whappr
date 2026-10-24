@@ -57,10 +57,11 @@ const valid = await verifyWebhook(
   `document`, `sticker`, `location`, `contact`, `unsupported`), plus `Chat`, `Participant`, `MediaInfo` and
   `ReplyContext`.
 - **Events** — `AnyWhapprEvent`, the union of every webhook event (`message.received`, `message.edited`,
-  `message.deleted`, `reaction.added`, `reaction.removed`), `WHAPPR_EVENT_TYPES` listing them, and
+  `message.deleted`, `reaction.added`, `reaction.removed`, `group.joined`, `group.left`,
+  `group.participant.joined`, `group.participant.left`), `WHAPPR_EVENT_TYPES` listing them, and
   `WebhookPayload`, the body of one delivery (a single event).
-- **API** — request/response bodies (`SendMessageRequest`, `MessageResponse`, `SessionState`, ...) and
-  `ErrorResponse` with its `ErrorCode`s.
+- **API** — request/response bodies (`SendMessageRequest`, `MessageResponse`, `SessionState`, `Group`,
+  ...) and `ErrorResponse` with its `ErrorCode`s.
 - **Webhook signatures** — `signWebhook()` and `verifyWebhook()` (HMAC-SHA256 over `${timestamp}.${body}`,
   via Web Crypto; signatures older than 5 minutes are rejected by default), and the
   `WHAPPR_TIMESTAMP_HEADER` / `WHAPPR_SIGNATURE_HEADER` names.

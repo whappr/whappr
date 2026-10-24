@@ -5,11 +5,13 @@ import { Hono } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
 import { type RequestIdVariables, requestId } from 'hono/request-id';
 import type { Logger } from 'pino';
+import type { ConfigService } from '../config.js';
 import type { WebhookDispatcher } from '../webhook/dispatcher.js';
-import type { WhatsappClient } from '../whatsapp/client.js';
+import type { Whatsapp } from '../whatsapp/index.js';
 import { handleError } from './errors.js';
 import { requestLogger } from './middlewares.js';
 import { createChatsRoute } from './routes/chats.js';
+import { createGroupsRoute } from './routes/groups.js';
 import { createMessagesRoute } from './routes/messages.js';
 import { createSessionRoute } from './routes/session.js';
 
@@ -22,21 +24,12 @@ export type AppEnv = {
   Variables: RequestIdVariables & { logger: Logger };
 };
 
-export interface AppDeps {
-  secret: string;
-  mediaMaxBytes: number;
-  client: WhatsappClient;
-  webhook: WebhookDispatcher;
-  logger: Logger;
-}
-
-export function createApp({
-  secret,
-  mediaMaxBytes,
-  client,
-  webhook,
-  logger,
-}: AppDeps): Hono<AppEnv> {
+export function createApp(
+  config: ConfigService<'secretKey' | 'mediaMaxBytes'>,
+  logger: Logger,
+  whatsapp: Whatsapp,
+  dispatcher: WebhookDispatcher,
+): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   // Also echoes the id back as `X-Request-Id`.
@@ -49,19 +42,20 @@ export function createApp({
   // `failed` is the only state the client doesn't recover from by itself (e.g. Chromium didn't
   // launch), so it's the only one that turns the container unhealthy.
   app.get('/health', (c) => {
-    const { status } = client.state;
+    const { status } = whatsapp.session.state;
     const session: SessionHealth = { ok: status !== 'failed', status };
     const ok = session.ok;
     return c.json(
-      { ok, version, session, webhook: webhook.last() } satisfies HealthResponse,
+      { ok, version, session, webhook: dispatcher.last() } satisfies HealthResponse,
       ok ? 200 : 503,
     );
   });
 
-  app.use('/api/*', bearerAuth({ token: secret }));
-  app.route('/api/session', createSessionRoute(client));
-  app.route('/api/messages', createMessagesRoute(client, mediaMaxBytes));
-  app.route('/api/chats', createChatsRoute(client));
+  app.use('/api/*', bearerAuth({ token: config.get('secretKey') }));
+  app.route('/api/session', createSessionRoute(whatsapp.session));
+  app.route('/api/messages', createMessagesRoute(config, whatsapp.messages));
+  app.route('/api/chats', createChatsRoute(whatsapp.chats));
+  app.route('/api/groups', createGroupsRoute(whatsapp.groups));
 
   app.notFound((c) => c.json({ error: { code: 'NOT_FOUND', message: 'Not Found' } }, 404));
   app.onError(handleError);

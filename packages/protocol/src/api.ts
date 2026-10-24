@@ -1,4 +1,4 @@
-import type { Message } from './messages.js';
+import type { Message, Participant } from './messages.js';
 
 // --- Session ---
 
@@ -94,7 +94,10 @@ export interface SendMediaRequest extends SendMessageBase {
   text?: string;
 }
 
-/** `POST /api/messages` → `201 MessageResponse`. */
+/**
+ * `POST /api/messages` → `201 MessageResponse`. With an `Idempotency-Key` header, the message is
+ * sent once per key for 24h: a repeat with the same key answers with the message already sent.
+ */
 export type SendMessageRequest = SendTextRequest | SendMediaRequest;
 
 /** `PATCH /api/messages/:id` → `200 MessageResponse`. */
@@ -117,7 +120,44 @@ export interface MessageResponse {
 //   PUT    /api/chats/:chatId/typing  → 204 (shows "typing…" for ~25s, or until a message is sent)
 //   DELETE /api/chats/:chatId/typing  → 204
 //   POST   /api/chats/:chatId/read    → 204 (marks the chat as read)
+//   DELETE /api/chats/:chatId         → 204 (deletes the chat on the paired account only;
+//                                        `STILL_IN_GROUP` for a group the account hasn't left)
 // `:chatId` accepts a phone number too, like `to` does.
+
+// --- Groups ---
+
+export interface GroupParticipant extends Participant {
+  isAdmin: boolean;
+}
+
+export interface GroupSummary {
+  id: string;
+  name: string;
+}
+
+/** `GET /api/groups/:groupId`. */
+export interface Group extends GroupSummary {
+  participants: GroupParticipant[];
+}
+
+/** `GET /api/groups`: the groups the account is a member of. */
+export interface ListGroupsResponse {
+  groups: GroupSummary[];
+}
+
+/**
+ * `POST /api/groups/:groupId/leave` → `204`. The body is optional. Answers `CHAT_NOT_FOUND` when
+ * the account isn't a member.
+ */
+export interface LeaveGroupRequest {
+  /**
+   * Also deletes the group's chat and history on the paired account, never for the other members.
+   * Defaults to `false`.
+   */
+  deleteChat?: boolean;
+}
+
+// `:groupId` must be a `…@g.us` id.
 
 // --- Errors ---
 
@@ -127,6 +167,7 @@ export type DomainErrorCode =
   | 'NOT_AUTHENTICATED'
   | 'RECIPIENT_NOT_FOUND'
   | 'CHAT_NOT_FOUND'
+  | 'STILL_IN_GROUP'
   | 'MESSAGE_NOT_FOUND'
   | 'EDIT_NOT_ALLOWED'
   | 'MEDIA_NOT_FOUND'

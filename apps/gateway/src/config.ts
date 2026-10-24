@@ -1,4 +1,4 @@
-import { WHAPPR_EVENT_TYPES } from '@whappr/protocol';
+import { WHAPPR_EVENT_TYPES, type WhapprEventType } from '@whappr/protocol';
 import { z } from 'zod';
 
 // Comma-separated list: entries trimmed, blanks dropped.
@@ -65,20 +65,56 @@ const envSchema = z.object({
     .transform((entries) => new Set(entries)),
   // Megabytes.
   MEDIA_MAX_SIZE: z.coerce.number().int().positive().default(64),
+  // Unset or empty keeps whatsapp-web.js's default.
+  DEVICE_NAME: z
+    .string()
+    .trim()
+    .optional()
+    .transform((name) => name || undefined),
 });
 
-export type Env = z.infer<typeof envSchema>;
+// The env, renamed and converted to what the gateway uses.
+const configSchema = envSchema.transform((env) => ({
+  port: env.PORT,
+  logLevel: env.LOG_LEVEL,
+  secretKey: env.SECRET_KEY,
+  webhookUrl: env.WEBHOOK_URL,
+  webhookEventTypes: env.WEBHOOK_EVENT_TYPES as ReadonlySet<WhapprEventType>,
+  /** Chat ids (`@c.us`, `@g.us`, `@lid`). Empty means every chat. */
+  webhookChatIds: env.WEBHOOK_CHAT_IDS as ReadonlySet<string>,
+  /** Sender ids (`@c.us`, `@lid`). Empty means every sender. */
+  webhookSenderIds: env.WEBHOOK_SENDER_IDS as ReadonlySet<string>,
+  mediaMaxBytes: env.MEDIA_MAX_SIZE * 1024 * 1024,
+  /** The name WhatsApp shows for the gateway under Linked devices. */
+  deviceName: env.DEVICE_NAME,
+}));
 
-export function loadEnv(): Env {
-  const result = envSchema.safeParse(process.env);
+export type Config = Readonly<z.infer<typeof configSchema>>;
+
+export type ConfigKey = keyof Config;
+
+/** Reads the gateway's config. `K` narrows the keys a consumer may read. */
+export interface ConfigService<K extends ConfigKey = ConfigKey> {
+  get<P extends K>(key: P): Config[P];
+}
+
+export class ConfigError extends Error {
+  constructor(readonly issues: string[]) {
+    super('Invalid environment configuration');
+    this.name = 'ConfigError';
+  }
+}
+
+/** Reads and validates the config from `source` once. Throws a `ConfigError` if it's invalid. */
+export function createConfig(source: NodeJS.ProcessEnv = process.env): ConfigService {
+  const result = configSchema.safeParse(source);
 
   if (!result.success) {
-    console.error('Invalid environment configuration:');
-    for (const issue of result.error.issues) {
-      console.error(`  - ${issue.path.join('.')}: ${issue.message}`);
-    }
-    process.exit(1);
+    throw new ConfigError(
+      result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+    );
   }
 
-  return result.data;
+  const config: Config = Object.freeze(result.data);
+  return { get: (key) => config[key] };
 }

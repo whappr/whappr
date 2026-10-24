@@ -1,49 +1,41 @@
 import { serve } from '@hono/node-server';
 import pino from 'pino';
-import { loadEnv } from './config/env.js';
+import { ConfigError, createConfig } from './config.js';
 import { createApp } from './http/app.js';
 import { createWebhookDispatcher } from './webhook/dispatcher.js';
 import { createWebhookFilter } from './webhook/filter.js';
-import { WhatsappClient } from './whatsapp/client.js';
+import { createWhatsapp } from './whatsapp/index.js';
 
-const env = loadEnv();
-const logger = pino({ level: env.LOG_LEVEL, errorKey: 'error' });
-const mediaMaxBytes = env.MEDIA_MAX_SIZE * 1024 * 1024;
+const config = loadConfig();
+const logger = pino({ level: config.get('logLevel'), errorKey: 'error' });
 
-const client = new WhatsappClient({ mediaMaxBytes, logger });
+const whatsapp = createWhatsapp(config, logger);
+const filter = createWebhookFilter(config, logger, whatsapp);
+const dispatcher = createWebhookDispatcher(config, logger, filter);
+const app = createApp(config, logger, whatsapp, dispatcher);
 
-const dispatcher = createWebhookDispatcher({
-  webhookUrl: env.WEBHOOK_URL,
-  secret: env.SECRET_KEY,
-  filter: createWebhookFilter({
-    eventTypes: env.WEBHOOK_EVENT_TYPES,
-    chatIds: env.WEBHOOK_CHAT_IDS,
-    senderIds: env.WEBHOOK_SENDER_IDS,
-    client,
-    logger,
-  }),
-  logger,
-});
+whatsapp.onEvent((event) => dispatcher.send(event));
 
-client.on('event', (event) => dispatcher.send(event));
-
-const app = createApp({
-  secret: env.SECRET_KEY,
-  mediaMaxBytes,
-  client,
-  webhook: dispatcher,
-  logger,
-});
-
-serve({ fetch: app.fetch, port: env.PORT }, (info) => {
+serve({ fetch: app.fetch, port: config.get('port') }, (info) => {
   logger.info({ port: info.port }, 'whappr listening');
 });
 
-void client.start();
+void whatsapp.session.start();
+
+function loadConfig() {
+  try {
+    return createConfig();
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    console.error(`${error.message}:`);
+    for (const issue of error.issues) console.error(`  - ${issue}`);
+    process.exit(1);
+  }
+}
 
 async function shutdown(): Promise<void> {
   logger.info('shutting down');
-  await client.stop().catch((error) => logger.error({ error }, 'error during shutdown'));
+  await whatsapp.session.stop().catch((error) => logger.error({ error }, 'error during shutdown'));
   await dispatcher.drain();
   process.exit(0);
 }

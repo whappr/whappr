@@ -19,19 +19,28 @@ export class WhapprNetworkError extends WhapprClientError {}
 /** The request was aborted after `timeoutMs` without a response. */
 export class WhapprTimeoutError extends WhapprClientError {}
 
+/** The request was aborted through the `signal` passed to the call. */
+export class WhapprAbortError extends WhapprClientError {}
+
 /**
  * The Gateway responded with a non-2xx status. `code` is whatever the error envelope's
  * `error.code` field held, if any — a domain code (e.g. `NOT_READY`, `MESSAGE_NOT_FOUND`)
- * or one derived from the HTTP status text (e.g. `BAD_REQUEST`). See `ErrorCode`.
+ * or one derived from the HTTP status text (e.g. `BAD_REQUEST`). See `ErrorCode`. `requestId` is
+ * the Gateway's `X-Request-Id`, the id its logs carry for this request.
  */
 export class WhapprApiError extends WhapprClientError {
   readonly status: number;
   readonly code?: ErrorCode;
+  readonly requestId?: string;
 
-  constructor(message: string, options: { status: number; code?: ErrorCode; cause?: unknown }) {
+  constructor(
+    message: string,
+    options: { status: number; code?: ErrorCode; requestId?: string; cause?: unknown },
+  ) {
     super(message, { cause: options.cause });
     this.status = options.status;
     this.code = options.code;
+    this.requestId = options.requestId;
   }
 }
 

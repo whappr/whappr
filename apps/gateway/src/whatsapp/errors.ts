@@ -9,3 +9,10 @@ export class WhatsappError extends Error {
     this.code = code;
   }
 }
+
+export function mediaTooLargeError(maxBytes: number): WhatsappError {
+  return new WhatsappError(
+    `Media is over the ${maxBytes}-byte limit (MEDIA_MAX_SIZE)`,
+    'MEDIA_TOO_LARGE',
+  );
+}

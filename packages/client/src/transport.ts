@@ -1,5 +1,7 @@
 import {
+  WhapprAbortError,
   WhapprApiError,
+  WhapprClientError,
   WhapprNetworkError,
   WhapprParseError,
   WhapprTimeoutError,
@@ -12,14 +14,27 @@ export interface TransportConfig {
   timeoutMs: number;
 }
 
+/** Per-call options every method accepts as its last argument. */
 export interface RequestOptions {
+  /** Aborts the call, which then rejects with `WhapprAbortError`. */
+  signal?: AbortSignal;
+  /**
+   * Overrides the client's `timeoutMs` for this call, e.g. to send or download a large file. On a
+   * timeout the Gateway may still complete the request — a timed-out `send()` doesn't mean the
+   * message wasn't sent.
+   */
+  timeoutMs?: number;
+}
+
+export interface TransportRequest {
   method: string;
   path: string;
   body?: unknown;
+  headers?: Record<string, string>;
   /** `blob` returns the raw response body instead of parsing it as JSON. Defaults to `json`. */
   responseType?: 'json' | 'blob';
-  /** Overrides the client's `timeoutMs` for this request. */
-  timeoutMs?: number;
+  /** Non-2xx statuses whose body is returned instead of thrown, e.g. `503` from `/health`. */
+  acceptStatuses?: number[];
 }
 
 interface ParsedErrorEnvelope {
@@ -57,69 +72,77 @@ async function toApiError(path: string, response: Response): Promise<WhapprApiEr
   const message =
     envelope?.message ??
     (text.length > 0 ? text : `Request to ${path} failed with status ${response.status}`);
-  return new WhapprApiError(message, { status: response.status, code: envelope?.code });
+  return new WhapprApiError(message, {
+    status: response.status,
+    code: envelope?.code,
+    requestId: response.headers.get('X-Request-Id') ?? undefined,
+  });
+}
+
+async function readBody<T>(request: TransportRequest, response: Response): Promise<T> {
+  if (request.responseType === 'blob') {
+    return (await response.blob()) as T;
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  if (text.length === 0) {
+    return undefined as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch (cause) {
+    throw new WhapprParseError(`Response from ${request.path} was not valid JSON`, { cause });
+  }
 }
 
 export interface Transport {
-  request<T = unknown>(options: RequestOptions): Promise<T>;
+  request<T = unknown>(request: TransportRequest, options?: RequestOptions): Promise<T>;
 }
 
 export function createTransport(config: TransportConfig): Transport {
-  async function request<T>(options: RequestOptions): Promise<T> {
-    const url = new URL(options.path, config.baseUrl).toString();
+  // Appended rather than resolved with `new URL()`, which would drop a path in `baseUrl`.
+  const baseUrl = config.baseUrl.replace(/\/+$/, '');
 
+  async function request<T>(request: TransportRequest, options: RequestOptions = {}): Promise<T> {
     const timeoutMs = options.timeoutMs ?? config.timeoutMs;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // Stays attached while the body is read, so the timeout covers the whole response.
+    const timeout = AbortSignal.timeout(timeoutMs);
+    const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 
-    const headers: Record<string, string> = { Authorization: `Bearer ${config.secret}` };
-    const init: RequestInit = { method: options.method, headers, signal: controller.signal };
-    if (options.body !== undefined) {
+    const headers: Record<string, string> = {
+      ...request.headers,
+      Authorization: `Bearer ${config.secret}`,
+    };
+    const init: RequestInit = { method: request.method, headers, signal };
+    if (request.body !== undefined) {
       headers['Content-Type'] = 'application/json';
-      init.body = JSON.stringify(options.body);
+      init.body = JSON.stringify(request.body);
     }
 
-    let response: Response;
     try {
-      response = await config.fetch(url, init);
+      const response = await config.fetch(`${baseUrl}${request.path}`, init);
+      if (!response.ok && !request.acceptStatuses?.includes(response.status)) {
+        throw await toApiError(request.path, response);
+      }
+      return await readBody<T>(request, response);
     } catch (cause) {
-      if (controller.signal.aborted) {
-        throw new WhapprTimeoutError(`Request to ${options.path} timed out after ${timeoutMs}ms`, {
+      if (cause instanceof WhapprClientError) {
+        throw cause;
+      }
+      if (options.signal?.aborted) {
+        throw new WhapprAbortError(`Request to ${request.path} was aborted`, { cause });
+      }
+      if (timeout.aborted) {
+        throw new WhapprTimeoutError(`Request to ${request.path} timed out after ${timeoutMs}ms`, {
           cause,
         });
       }
-      throw new WhapprNetworkError(`Request to ${options.path} failed`, { cause });
-    } finally {
-      clearTimeout(timer);
-    }
-
-    if (!response.ok) {
-      throw await toApiError(options.path, response);
-    }
-
-    if (options.responseType === 'blob') {
-      try {
-        return (await response.blob()) as T;
-      } catch (cause) {
-        throw new WhapprNetworkError(`Reading the response from ${options.path} failed`, { cause });
-      }
-    }
-
-    if (response.status === 204) {
-      return undefined as T;
-    }
-
-    const text = await response.text();
-    if (text.length === 0) {
-      return undefined as T;
-    }
-
-    try {
-      return JSON.parse(text) as T;
-    } catch (cause) {
-      throw new WhapprParseError(`Response from ${options.path} was not valid JSON`, {
-        cause,
-      });
+      throw new WhapprNetworkError(`Request to ${request.path} failed`, { cause });
     }
   }
 
